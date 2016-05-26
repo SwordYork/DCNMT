@@ -129,9 +129,11 @@ class CostCurve(TrainingDataMonitoring):
             # do just that
             if args == ('just_aggregate',):
                 return
-            # Otherwise, also output current values of from the accumulators
-            # to the log.
+            # Otherwise, also save current values of from the accumulators
             curr_iter = self.main_loop.status['iterations_done']
+            if curr_iter == 0:
+                return
+
             curr_cost = self._variables.get_aggregated_values()
             curr_cost = curr_cost['decoder_cost_cost'].tolist()
             self.cost_curve.append({curr_iter: curr_cost})
@@ -209,8 +211,7 @@ class Sampler(SimpleExtension, SamplingBase):
             target_length = self._get_true_length(target_[i], self.trg_vocab) + 1
             _1, outputs, _2, _3, _4, _5, _6, costs = self.sampling_fn(**input_dict)
             outputs = outputs.flatten()
-
-            costs = costs.T
+            costs = costs.flatten()
 
             sample_length = self._get_true_length(outputs, self.trg_vocab)
             print("Input : ", self._idx_to_word(input_[i][:input_length],

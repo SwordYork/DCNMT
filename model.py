@@ -420,10 +420,10 @@ class SequenceGeneratorDCNMT(BaseSequenceGenerator):
         next_costs = self.readout.cost(readout_chars, next_outputs)
 
         update_next = tensor.eq(next_outputs, self.trg_space_idx)
+        next_char_mask = 1 - update_next
         update_next = update_next[:, None]
         next_readout_feedback = (1 - update_next) * readout_feedback + update_next * feedback
 
-        next_char_mask = 1 - update_next
         next_feedback = self.readout.single_feedback(next_outputs, batch_size, next_char_mask, feedback)
 
         next_inputs = (self.fork.apply(next_readout_feedback, as_dict=True)
@@ -590,8 +590,7 @@ class Decoder(Initializable):
             'target_prev_char_seq': target_prev_char_seq,
             'target_prev_char_aux': target_prev_char_aux,
             'attended': representation,
-            'attended_mask': source_word_mask}
-                                                       )
+            'attended_mask': source_word_mask})
 
         return (cost * target_char_mask).sum() / target_char_mask.shape[1]
 
