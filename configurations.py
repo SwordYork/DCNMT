@@ -96,6 +96,12 @@ def get_config_en2fr():
     # Validation set gold file
     config['val_set_grndtruth'] = datadir + 'newstest2013.fr.tok'
 
+    # Test set source file
+    config['test_set'] = datadir + 'newstest2014.en.tok'
+
+    # Test set gold file
+    config['test_set_grndtruth'] = datadir + 'newstest2014.fr.tok'
+
     config['validate'] = True
 
     # Print validation output to file
@@ -103,6 +109,9 @@ def get_config_en2fr():
 
     # Validation output file
     config['val_set_out'] = config['saveto'] + '/validation_out.txt'
+
+    # Validation output file
+    config['test_set_out'] = config['saveto'] + '/test_out.txt'
 
     # Beam-size
     config['beam_size'] = 12

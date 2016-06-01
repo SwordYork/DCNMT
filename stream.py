@@ -254,6 +254,20 @@ def get_dev_stream(val_set=None, src_vocab=None, src_vocab_size=120,
     return dev_stream
 
 
+def get_test_stream(test_set=None, src_vocab=None, src_vocab_size=120,
+                   unk_id=1, **kwargs):
+    """Setup development set stream if necessary."""
+    test_stream = None
+    if test_set is not None and src_vocab is not None:
+        src_vocab = _ensure_special_tokens(
+            src_vocab if isinstance(src_vocab, dict) else
+            pickle.load(open(src_vocab, 'rb')),
+            bos_idx=0, eos_idx=src_vocab_size - 1, unk_idx=unk_id)
+        test_src_dataset = TextFileWithSEOSS([test_set], src_vocab, None, level='character')
+        test_stream = DataStream(test_src_dataset)
+    return test_stream
+
+
 if __name__ == '__main__':
     # test train stream
     import argparse
