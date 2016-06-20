@@ -26,7 +26,7 @@ def get_config_en2fr():
     # Optimization related ----------------------------------------------------
 
     # Batch size
-    config['batch_size'] = 70
+    config['batch_size'] = 72
 
     # This many batches will be read ahead and sorted
     config['sort_k_batches'] = 12
@@ -119,7 +119,7 @@ def get_config_en2fr():
     # Timing/monitoring related -----------------------------------------------
 
     # Maximum number of updates
-    config['finish_after'] = 1000000
+    config['finish_after'] = 432000
 
     # Reload model from files if exist
     config['reload'] = True
@@ -133,8 +133,8 @@ def get_config_en2fr():
     # Show this many samples at each sampling
     config['hook_samples'] = 2
 
-    config['bleu_val_freq'] = 15000
+    config['bleu_val_freq'] = 18000
     # Start validation after this many updates
-    config['val_burn_in'] = 15000
+    config['val_burn_in'] = 70000
 
     return config

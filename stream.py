@@ -78,8 +78,7 @@ class PaddingWithEOS(Padding):
 
     def transform_batch(self, batch):
         batch_with_masks = []
-        for k, (source, source_batch) in enumerate(
-                zip(self.data_stream.sources, batch)):
+        for k, (source, source_batch) in enumerate(zip(self.data_stream.sources, batch)):
             if source not in self.mask_sources:
                 batch_with_masks.append(source_batch)
                 continue
@@ -235,7 +234,8 @@ def get_tr_stream(src_vocab, trg_vocab, src_data, trg_data,
         stream, iteration_scheme=ConstantScheme(batch_size))
 
     # Pad sequences that are short
-    masked_stream = PaddingWithEOS(stream, {'source': src_vocab[' '], 'target': trg_vocab[' ']}, trg_vocab[bos_token])
+    masked_stream = PaddingWithEOS(stream, {'source': src_vocab[' '], 'target': trg_vocab[' ']}, trg_vocab[bos_token],
+                                   mask_dtype='int8')
 
     return masked_stream
 

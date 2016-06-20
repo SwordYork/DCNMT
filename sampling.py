@@ -41,16 +41,18 @@ class SamplingBase(object):
         input_ = input_[:input_length]
         total_word = list(input_).count(src_vocab[' '])
 
-        space_idx_batch = numpy.zeros((total_word, input_length), dtype='float32')
-        space_idx_batch[range(total_word), numpy.nonzero(input_ == src_vocab[' '])[0] - 1] = 1.0
+        source_sample_matrix = numpy.zeros((total_word, input_length), dtype='int8')
+        source_sample_matrix[range(total_word), numpy.nonzero(input_ == src_vocab[' '])[0] - 1] = 1
 
-        mask = numpy.ones(total_word, dtype='float32')
+        source_word_mask = numpy.ones(total_word, dtype='int8')
 
-        char_mask = numpy.ones(input_length, dtype='float32')
-        char_mask[input_ == src_vocab[' ']] = 0
+        source_char_aux = numpy.ones(input_length, dtype='int8')
+        source_char_aux[input_ == src_vocab[' ']] = 0
 
-        input_dict = {'source_sample_matrix': space_idx_batch[None, :], 'source_char_aux': char_mask[None, :],
-                      'source_char_seq': input_[None, :], 'source_word_mask': mask[None, :]}
+        input_dict = {'source_sample_matrix': source_sample_matrix[None, :],
+                      'source_char_aux': source_char_aux[None, :],
+                      'source_char_seq': input_[None, :],
+                      'source_word_mask': source_word_mask[None, :]}
         return input_length, input_dict
 
     def build_input_dict_tile(self, input_, src_vocab, beam_size):
@@ -58,17 +60,17 @@ class SamplingBase(object):
         input_ = input_[:input_length]
         total_word = list(input_).count(src_vocab[' '])
 
-        space_idx_batch = numpy.zeros((total_word, input_length), dtype='float32')
-        space_idx_batch[range(total_word), numpy.nonzero(input_ == src_vocab[' '])[0] - 1] = 1.0
+        source_sample_matrix = numpy.zeros((total_word, input_length), dtype='int8')
+        source_sample_matrix[range(total_word), numpy.nonzero(input_ == src_vocab[' '])[0] - 1] = 1
 
-        mask = numpy.ones(total_word, dtype='float32')
+        source_word_mask = numpy.ones(total_word, dtype='int8')
 
-        char_mask = numpy.ones(input_length, dtype='float32')
-        char_mask[input_ == src_vocab[' ']] = 0
+        source_char_aux = numpy.ones(input_length, dtype='int8')
+        source_char_aux[input_ == src_vocab[' ']] = 0
 
-        input_dict = {'source_sample_matrix': numpy.tile(space_idx_batch, (beam_size, 1, 1)),
-                      'source_word_mask': numpy.tile(mask, (beam_size, 1)),
-                      'source_char_aux': numpy.tile(char_mask, (beam_size, 1)),
+        input_dict = {'source_sample_matrix': numpy.tile(source_sample_matrix, (beam_size, 1, 1)),
+                      'source_word_mask': numpy.tile(source_word_mask, (beam_size, 1)),
+                      'source_char_aux': numpy.tile(source_char_aux, (beam_size, 1)),
                       'source_char_seq': numpy.tile(input_, (beam_size, 1))}
 
         return input_dict

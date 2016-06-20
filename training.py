@@ -54,17 +54,17 @@ def main(config, tr_stream, dev_stream):
     # Create Theano variables
     logger.info('Creating theano variables')
     source_char_seq = tensor.lmatrix('source_char_seq')
-    source_sample_matrix = tensor.tensor3('source_sample_matrix')
-    source_char_aux = tensor.matrix('source_char_aux')
-    source_word_mask = tensor.matrix('source_word_mask')
+    source_sample_matrix = tensor.btensor3('source_sample_matrix')
+    source_char_aux = tensor.bmatrix('source_char_aux')
+    source_word_mask = tensor.bmatrix('source_word_mask')
     target_char_seq = tensor.lmatrix('target_char_seq')
-    target_char_aux = tensor.matrix('target_char_aux')
-    target_char_mask = tensor.matrix('target_char_mask')
-    target_sample_matrix = tensor.tensor3('target_sample_matrix')
-    target_word_mask = tensor.matrix('target_word_mask')
-    target_resample_matrix = tensor.tensor3('target_resample_matrix')
+    target_char_aux = tensor.bmatrix('target_char_aux')
+    target_char_mask = tensor.bmatrix('target_char_mask')
+    target_sample_matrix = tensor.btensor3('target_sample_matrix')
+    target_word_mask = tensor.bmatrix('target_word_mask')
+    target_resample_matrix = tensor.btensor3('target_resample_matrix')
     target_prev_char_seq = tensor.lmatrix('target_prev_char_seq')
-    target_prev_char_aux = tensor.matrix('target_prev_char_aux')
+    target_prev_char_aux = tensor.bmatrix('target_prev_char_aux')
     target_bos_idx = tr_stream.trg_bos
     target_space_idx = tr_stream.space_idx['target']
 

@@ -2,7 +2,6 @@ from theano import tensor
 
 from blocks.filter import VariableFilter
 from blocks.graph import ComputationGraph
-from blocks.initialization import IsotropicGaussian, Orthogonal, Constant
 from blocks.main_loop import MainLoop
 from blocks.model import Model
 
@@ -53,29 +52,9 @@ def main(config, tr_stream, test_stream):
                         target_resample_matrix, target_char_aux, target_char_mask,
                         target_word_mask, target_prev_char_seq, target_prev_char_aux)
 
-    logger.info('Creating computational graph')
-    cg = ComputationGraph(cost)
-
-    # Initialize model
-    logger.info('Initializing model')
-    encoder.weights_init = decoder.weights_init = IsotropicGaussian(
-        config['weight_scale'])
-    encoder.biases_init = decoder.biases_init = Constant(0)
-    encoder.push_initialization_config()
-    decoder.push_initialization_config()
-    encoder.decimator.dgru.weights_init = Orthogonal()
-    encoder.bidir.prototype.weights_init = Orthogonal()
-    decoder.interpolator.igru.weights_init = Orthogonal()
-    decoder.interpolator.feedback_brick.dgru.weights_init = Orthogonal()
-    decoder.transition.weights_init = Orthogonal()
-    encoder.initialize()
-    decoder.initialize()
-
     # Set up training model
     logger.info("Building model")
     training_model = Model(cost)
-    # Set up training algorithm
-    logger.info("Initializing training algorithm")
 
     # Set extensions
     logger.info("Initializing extensions")
@@ -94,8 +73,6 @@ def main(config, tr_stream, test_stream):
             bricks=[decoder.sequence_generator], name="outputs")(
             ComputationGraph(generated[1]))  # generated[1] is next_outputs
 
-    # Add early stopping based on bleu
-    if config['bleu_script'] is not None:
         logger.info("Building bleu tester")
         extensions.append(
             BleuTester(source_char_seq, source_sample_matrix, source_char_aux,
@@ -115,6 +92,7 @@ def main(config, tr_stream, test_stream):
     for extension in main_loop.extensions:
         extension.main_loop = main_loop
     main_loop._run_extensions('before_training')
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
