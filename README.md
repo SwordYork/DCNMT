@@ -10,4 +10,4 @@ Training
  2. Tokenize and Shuffle the cropus.
  3. Create the character list for both language using `create_vocab.py`. Don't forget to modify the language setting, vocabulary size and file name in both file.
  4. Create a `data` folder, and put the `vocab.*.*.pkl` and `*.shuf` in the `data` folder.
- 5. Edit the `configurations.py`, and run `python run.py`
+ 5. Edit the `configurations.py`, and run `python training.py`

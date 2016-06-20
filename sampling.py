@@ -12,6 +12,7 @@ from blocks.extensions import SimpleExtension, TrainingExtension
 from blocks.extensions.monitoring import TrainingDataMonitoring
 from blocks.search import BeamSearch
 from subprocess import Popen, PIPE
+from checkpoint import SaveLoadUtils
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +225,7 @@ class Sampler(SimpleExtension, SamplingBase):
             print()
 
 
-class BleuValidator(SimpleExtension, SamplingBase):
+class BleuValidator(SimpleExtension, SamplingBase, SaveLoadUtils):
     # TODO: a lot has been changed in NMT, sync respectively
     """Implements early stopping based on BLEU score."""
 
@@ -269,12 +270,11 @@ class BleuValidator(SimpleExtension, SamplingBase):
                 bleu_score = numpy.load(os.path.join(self.config['saveto'],
                                                      'val_bleu_scores.npz'))
                 self.val_bleu_curve = bleu_score['bleu_scores'].tolist()
-
                 # Track n best previous bleu scores
                 for i, bleu in enumerate(
-                        sorted(self.val_bleu_curve, reverse=True)):
+                        sorted([list(v.values())[0] for v in self.val_bleu_curve], reverse=True)):
                     if i < self.track_n_models:
-                        self.best_models.append(ModelInfo(bleu))
+                        self.best_models.append(ModelInfo(bleu, self.config['saveto']))
                 logger.info("BleuScores Reloaded")
             except:
                 logger.info("BleuScores not Found")
@@ -417,9 +417,8 @@ class BleuValidator(SimpleExtension, SamplingBase):
             # Save the model here
             s = signal.signal(signal.SIGINT, signal.SIG_IGN)
             logger.info("Saving new model {}".format(model.path))
-            numpy.savez(
-                model.path, **self.main_loop.model.get_parameter_dict())
-
+            params_to_save = self.main_loop.model.get_parameter_values()
+            self.save_parameter_values(params_to_save, model.path)
             signal.signal(signal.SIGINT, s)
 
 
@@ -569,13 +568,13 @@ class BleuTester(TrainingExtension, SamplingBase):
 class ModelInfo:
     """Utility class to keep track of evaluated models."""
 
-    def __init__(self, bleu_score, path=None):
+    def __init__(self, bleu_score, path=''):
         self.bleu_score = bleu_score
 
         self.path = self._generate_path(path)
 
     def _generate_path(self, path):
         gen_path = os.path.join(
-            path, 'best_bleu_model_%d_BLEU%.2f.npz' %
-                  (int(time.time()), self.bleu_score) if path else None)
+            path, 'best_bleu_params_BLEU%.2f.npz' %
+                  (self.bleu_score) if path else None)
         return gen_path
