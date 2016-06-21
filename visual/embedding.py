@@ -117,10 +117,9 @@ def main(config, tr_stream):
                         target_resample_matrix, target_char_aux, target_char_mask,
                         target_word_mask, target_prev_char_seq, target_prev_char_aux)
 
-    # Set up training model
+    # Set up model
     logger.info("Building model")
     training_model = Model(cost)
-    # Set up training algorithm
 
     # Set extensions
     logger.info("Initializing extensions")

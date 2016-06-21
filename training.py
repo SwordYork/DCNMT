@@ -76,7 +76,7 @@ def main(config, tr_stream, dev_stream):
 
     decoder = Decoder(
         config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
-        config['enc_nhids'] * 2, target_space_idx, target_bos_idx)
+        config['enc_nhids'] * 2, config['transition_layers'], target_space_idx, target_bos_idx)
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)
@@ -170,16 +170,15 @@ def main(config, tr_stream, dev_stream):
         search_model = Model(generated)
         _, samples = VariableFilter(
             bricks=[decoder.sequence_generator], name="outputs")(
-            ComputationGraph(generated[1]))  # generated[1] is next_outputs
+            ComputationGraph(generated[config['transition_layers']]))  # generated[transition_layers] is next_outputs
 
     # Add sampling
     if config['hook_samples'] >= 1:
         logger.info("Building sampler")
         extensions.append(
             Sampler(model=search_model, data_stream=tr_stream,
-                    hook_samples=config['hook_samples'],
-                    every_n_batches=config['sampling_freq'],
-                    src_vocab_size=config['src_vocab_size']))
+                    hook_samples=config['hook_samples'], transition_layers=config['transition_layers'],
+                    every_n_batches=config['sampling_freq'], src_vocab_size=config['src_vocab_size']))
 
     # Add early stopping based on bleu
     if config['bleu_script'] is not None:

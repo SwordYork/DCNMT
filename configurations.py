@@ -22,6 +22,7 @@ def get_config_en2fr():
     # Dimension of the word embedding matrix in encoder/decoder
     config['enc_embed'] = 64
     config['dec_embed'] = 64
+    config['transition_layers'] = 4
 
     # Optimization related ----------------------------------------------------
 

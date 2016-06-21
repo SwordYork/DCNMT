@@ -5,7 +5,7 @@ from blocks.bricks.attention import SequenceContentAttention, AttentionRecurrent
 from blocks.bricks.base import application
 from blocks.bricks.lookup import LookupTable
 from blocks.bricks.parallel import Fork
-from blocks.bricks.recurrent import GatedRecurrent, Bidirectional, recurrent
+from blocks.bricks.recurrent import GatedRecurrent, Bidirectional, recurrent, BaseRecurrent, RecurrentStack
 from blocks.bricks.sequence_generators import (
     Readout, SoftmaxEmitter, BaseSequenceGenerator)
 from blocks.roles import add_role, WEIGHT
@@ -311,9 +311,10 @@ class SequenceGeneratorDCNMT(BaseSequenceGenerator):
 
     """
 
-    def __init__(self, trg_space_idx, readout, transition, attention=None,
+    def __init__(self, trg_space_idx, readout, transition, attention=None, transition_layers=1,
                  add_contexts=True, **kwargs):
         self.trg_space_idx = trg_space_idx
+        self.transition_layers = transition_layers
         normal_inputs = [name for name in transition.apply.sequences
                          if 'mask' not in name]
         kwargs.setdefault('fork', Fork(normal_inputs))
@@ -431,13 +432,16 @@ class SequenceGeneratorDCNMT(BaseSequenceGenerator):
         next_states = self.transition.compute_states(
             as_list=True,
             **dict_union(next_inputs, states, next_glimpses, contexts))
-        next_states = update_next * next_states[0] + (1 - update_next) * states['states']
+
+        next_states[0] = update_next * next_states[0] + (1 - update_next) * states['states']
+        for i in range(1, self.transition_layers):
+            next_states[i] = update_next * next_states[i] + (1 - update_next) * states['states#' + str(i)]
 
         next_glimpses['weights'] = update_next * next_glimpses['weights'] + (1 - update_next) * glimpses['weights']
         next_glimpses['weighted_averages'] = update_next * next_glimpses['weighted_averages'] + \
                                              (1 - update_next) * glimpses['weighted_averages']
 
-        return ([next_states] + [next_outputs] +
+        return (list(next_states) + [next_outputs] +
                 list(next_glimpses.values()) + [next_feedback] + [next_gru_out] +
                 [next_readout_feedback] + [next_costs])
 
@@ -455,8 +459,7 @@ class SequenceGeneratorDCNMT(BaseSequenceGenerator):
         return self._state_names + ['outputs'] + self._glimpse_names + ['feedback', 'gru_out', 'readout_feedback']
 
     def get_dim(self, name):
-        if name in (self._state_names + self._context_names +
-                        self._glimpse_names):
+        if name in (self._state_names + self._context_names + self._glimpse_names):
             return self.transition.get_dim(name)
         elif name == 'outputs' or name == 'feedback' or name == 'readout_feedback' or name == 'gru_out':
             return self.readout.get_dim('outputs')
@@ -516,10 +519,10 @@ class GRUInitialState(GatedRecurrent):
 
 
 class Decoder(Initializable):
-    """Decoder of RNNsearch model."""
+    """Decoder of dcnmt model."""
 
     def __init__(self, vocab_size, embedding_dim, dgru_state_dim, state_dim,
-                 representation_dim, trg_space_idx, trg_bos, theano_seed=None, **kwargs):
+                 representation_dim, transition_layers, trg_space_idx, trg_bos, theano_seed=None, **kwargs):
         super(Decoder, self).__init__(**kwargs)
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
@@ -530,9 +533,11 @@ class Decoder(Initializable):
         self.theano_seed = theano_seed
 
         # Initialize gru with special initial state
-        self.transition = GRUInitialState(
+        self.transition = RecurrentStack([GRUInitialState(
             attended_dim=state_dim, dim=state_dim,
-            activation=Tanh(), name='decoder')
+            activation=Tanh(), name='decoder_init_gru')] +
+            [GatedRecurrent(dim=state_dim, activation=Tanh(),
+                            name='decoder_gru' + str(i)) for i in range(1, transition_layers)])
 
         # Initialize the attention mechanism
         self.attention = SequenceContentAttention(
@@ -560,6 +565,7 @@ class Decoder(Initializable):
             readout=self.interpolator,
             transition=self.transition,
             attention=self.attention,
+            transition_layers=transition_layers,
             fork=Fork([name for name in self.transition.apply.sequences
                        if name != 'mask'], prototype=Linear())
         )
