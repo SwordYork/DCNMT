@@ -33,7 +33,6 @@ from checkpoint import CheckpointNMT, LoadNMT
 from model import BidirectionalEncoder, Decoder
 from sampling import BleuValidator, Sampler, CostCurve
 
-
 import argparse
 import pprint
 
@@ -71,12 +70,11 @@ def main(config, tr_stream, dev_stream):
     # Construct model
     logger.info('Building RNN encoder-decoder')
 
-    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'],
-                                   config['char_enc_nhids'], config['enc_nhids'])
+    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['char_enc_nhids'],
+                                   config['enc_nhids'], config['encoder_layers'])
 
-    decoder = Decoder(
-        config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
-        config['enc_nhids'] * 2, config['transition_layers'], target_space_idx, target_bos_idx)
+    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
+                      config['enc_nhids'] * 2, config['transition_layers'], target_space_idx, target_bos_idx)
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)

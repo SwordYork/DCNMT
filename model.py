@@ -1,8 +1,10 @@
+import copy
+
 from blocks.bricks import (Tanh, Linear, FeedforwardSequence, Identity,
                            Initializable, MLP)
 from blocks.bricks.attention import SequenceContentAttention, AttentionRecurrent
 
-from blocks.bricks.base import application
+from blocks.bricks.base import application, lazy
 from blocks.bricks.lookup import LookupTable
 from blocks.bricks.parallel import Fork
 from blocks.bricks.recurrent import GatedRecurrent, Bidirectional, recurrent, BaseRecurrent, RecurrentStack
@@ -19,20 +21,6 @@ from toolz import merge
 # Helper class
 class InitializableFeedforwardSequence(FeedforwardSequence, Initializable):
     pass
-
-
-class BidirectionalDCNMT(Bidirectional):
-    """Wrap two Gated Recurrents each having separate parameters."""
-
-    @application
-    def apply(self, forward_dict, backward_dict):
-        """Applies forward and backward networks and concatenates outputs."""
-        forward = self.children[0].apply(as_list=True, **forward_dict)
-        backward = [x[::-1] for x in
-                    self.children[1].apply(reverse=True, as_list=True,
-                                           **backward_dict)]
-        return [tensor.concatenate([f, b], axis=2)
-                for f, b in equizip(forward, backward)]
 
 
 class DGRU(GatedRecurrent):
@@ -83,7 +71,7 @@ class DGRU(GatedRecurrent):
 class Decimator(Initializable):
     """Char encoder, mapping a char-level word to a vector"""
 
-    def __init__(self, vocab_size, embedding_dim, dgru_state_dim, **kwargs):
+    def __init__(self, vocab_size, embedding_dim, dgru_state_dim, dgru_layers, **kwargs):
         super(Decimator, self).__init__(**kwargs)
 
         self.vocab_size = vocab_size
@@ -91,7 +79,12 @@ class Decimator(Initializable):
         self.dgru_state_dim = dgru_state_dim
         self.embedding_dim = embedding_dim
         self.lookup = LookupTable(name='embeddings')
-        self.dgru = DGRU(activation=Tanh(), dim=self.dgru_state_dim)
+        self.dgru_layers = dgru_layers
+        if dgru_layers == 1:
+            self.dgru = DGRU(activation=Tanh(), dim=self.dgru_state_dim)
+        else:
+            self.dgru = RecurrentStack([DGRU(activation=Tanh(), dim=self.dgru_state_dim) for _ in range(dgru_layers)])
+
         self.gru_fork = Fork([name for name in self.dgru.apply.sequences
                               if name != 'mask'], prototype=Linear(), name='gru_fork')
 
@@ -113,6 +106,8 @@ class Decimator(Initializable):
         gru_out = self.dgru.apply(
             **merge(self.gru_fork.apply(embeddings, as_dict=True),
                     {'mask': char_aux}))
+        if self.dgru_layers > 1:
+            gru_out = gru_out[-1]
         sampled_representation = tensor.batched_dot(sample_matrix, gru_out.dimshuffle([1, 0, 2]))
         return sampled_representation.dimshuffle([1, 0, 2])
 
@@ -134,32 +129,52 @@ class Decimator(Initializable):
         super(Decimator, self).get_dim(name)
 
 
+class RecurrentWithFork(Initializable):
+    @lazy(allocation=['input_dim'])
+    def __init__(self, proto, input_dim, **kwargs):
+        super(RecurrentWithFork, self).__init__(**kwargs)
+        self.recurrent = proto
+        self.input_dim = input_dim
+        self.fork = Fork(
+            [name for name in self.recurrent.sequences
+             if name != 'mask'],
+            prototype=Linear())
+        self.children = [self.recurrent.brick, self.fork]
+
+    def _push_allocation_config(self):
+        self.fork.input_dim = self.input_dim
+        self.fork.output_dims = [self.recurrent.brick.get_dim(name)
+                                 for name in self.fork.output_names]
+
+    @application(inputs=['input_', 'mask'])
+    def apply(self, input_, mask=None, **kwargs):
+        return self.recurrent(
+            mask=mask, **dict_union(self.fork.apply(input_, as_dict=True),
+                                    kwargs))
+
+    @apply.property('outputs')
+    def apply_outputs(self):
+        return self.recurrent.states
+
+
 class BidirectionalEncoder(Initializable):
     """Encoder of model."""
 
-    def __init__(self, src_vocab_size, embedding_dim, dgru_state_dim, state_dim, **kwargs):
+    def __init__(self, src_vocab_size, embedding_dim, dgru_state_dim, state_dim, encoder_layers, **kwargs):
         super(BidirectionalEncoder, self).__init__(**kwargs)
         self.state_dim = state_dim
         self.dgru_state_dim = dgru_state_dim
-        self.decimator = Decimator(src_vocab_size, embedding_dim, dgru_state_dim)
-        self.bidir = BidirectionalDCNMT(
-            GatedRecurrent(activation=Tanh(), dim=state_dim))
-        self.fwd_fork = Fork(
-            [name for name in self.bidir.prototype.apply.sequences
-             if name != 'mask'], prototype=Linear(), name='fwd_fork')
-        self.back_fork = Fork(
-            [name for name in self.bidir.prototype.apply.sequences
-             if name != 'mask'], prototype=Linear(), name='back_fork')
+        self.decimator = Decimator(src_vocab_size, embedding_dim, dgru_state_dim, encoder_layers)
+        self.bidir = Bidirectional(
+            RecurrentWithFork(GatedRecurrent(activation=Tanh(), dim=state_dim).apply, dgru_state_dim, name='with_fork'),
+            name='bidir0')
 
-        self.children = [self.decimator, self.bidir, self.fwd_fork, self.back_fork]
-
-    def _push_allocation_config(self):
-        self.fwd_fork.input_dim = self.dgru_state_dim
-        self.fwd_fork.output_dims = [self.bidir.children[0].get_dim(name)
-                                     for name in self.fwd_fork.output_names]
-        self.back_fork.input_dim = self.dgru_state_dim
-        self.back_fork.output_dims = [self.bidir.children[1].get_dim(name)
-                                      for name in self.back_fork.output_names]
+        self.children = [self.decimator, self.bidir]
+        for layer in range(1, encoder_layers):
+            self.children.append(copy.deepcopy(self.bidir))
+            for child in self.children[-1].children:
+                child.input_dim = 2 * state_dim
+            self.children[-1].name = 'bidir{}'.format(layer)
 
     @application(inputs=['source_char_seq', 'source_sample_matrix', 'source_char_aux', 'source_word_mask'],
                  outputs=['representation'])
@@ -169,12 +184,9 @@ class BidirectionalEncoder(Initializable):
         source_char_aux = source_char_aux.T
         source_word_mask = source_word_mask.T
         source_word_representation = self.decimator.apply(source_char_seq, source_sample_matrix, source_char_aux)
-        representation = self.bidir.apply(
-            merge(self.fwd_fork.apply(source_word_representation, as_dict=True),
-                  {'mask': source_word_mask}),
-            merge(self.back_fork.apply(source_word_representation, as_dict=True),
-                  {'mask': source_word_mask})
-        )
+        representation = source_word_representation
+        for bidir in self.children[1:]:
+            representation = bidir.apply(representation, source_word_mask)
         return representation
 
 
@@ -533,11 +545,10 @@ class Decoder(Initializable):
         self.theano_seed = theano_seed
 
         # Initialize gru with special initial state
-        self.transition = RecurrentStack([GRUInitialState(
-            attended_dim=state_dim, dim=state_dim,
-            activation=Tanh(), name='decoder_init_gru')] +
-            [GatedRecurrent(dim=state_dim, activation=Tanh(),
-                            name='decoder_gru' + str(i)) for i in range(1, transition_layers)])
+        self.transition = RecurrentStack(
+            [GRUInitialState(attended_dim=state_dim, dim=state_dim, activation=Tanh(), name='decoder_init_gru')] + [
+                GatedRecurrent(dim=state_dim, activation=Tanh(), name='decoder_gru' + str(i)) for i in
+                range(1, transition_layers)], skip_connections=True)
 
         # Initialize the attention mechanism
         self.attention = SequenceContentAttention(
@@ -554,7 +565,7 @@ class Decoder(Initializable):
             readout_dim=self.vocab_size,
             emitter=SoftmaxEmitter(initial_output=trg_bos, theano_seed=theano_seed),
             igru=IGRU(dim=state_dim),
-            feedback_brick=Decimator(vocab_size, embedding_dim, self.dgru_state_dim),
+            feedback_brick=Decimator(vocab_size, embedding_dim, self.dgru_state_dim, 1),
             post_merge=InitializableFeedforwardSequence(
                 [Identity().apply]),
             merged_dim=state_dim)
