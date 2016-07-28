@@ -45,8 +45,17 @@ def plot_embedding(X, Y, title=None):
 
     plt.figure()
     for i in range(X.shape[0]):
-        plt.text(X[i, 0], X[i, 1], str(Y[i]),
-                 fontdict={'weight': 'bold', 'size': 9})
+        if str(Y[i]) in ['Sunday ', 'March ', 'June ', 'January ', 'February ',
+                         'April ', 'May ', 'July ', 'August ', 'September ',
+                         'October ', 'November ', 'December ']:
+            plt.text(X[i, 0], X[i, 1], str(Y[i]),
+                     fontdict={'weight': 'bold', 'size': 18, 'color': 'blue'})
+        elif str(Y[i]) != 'exercise ' and str(Y[i]) != 'exrecise ':
+            plt.text(X[i, 0], X[i, 1], str(Y[i]),
+                     fontdict={'size': 18})
+        else:
+            plt.text(X[i, 0], X[i, 1], str(Y[i]),
+                     fontdict={'weight': 'bold', 'size': 18, 'color': 'red'})
 
     plt.xticks([]), plt.yticks([])
     if title is not None:
@@ -67,7 +76,7 @@ def embedding(embedding_model, src_vocab):
     X = []
     Y = []
     for word in core_list:
-        word = word + ' '
+        word += ' '
         _, input_dict = build_input_dict(word, src_vocab)
         w_v = sampling_fn(**input_dict)[0][0][0]
         X.append(w_v)
@@ -105,11 +114,11 @@ def main(config, tr_stream):
 
     logger.info('Building RNN encoder-decoder')
     encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'],
-                                   config['char_enc_nhids'], config['enc_nhids'])
+                                   config['char_enc_nhids'], config['enc_nhids'], config['encoder_layers'])
 
     decoder = Decoder(
         config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
-        config['enc_nhids'] * 2, target_space_idx, target_bos_idx)
+        config['enc_nhids'] * 2, config['encoder_layers'], target_space_idx, target_bos_idx)
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)

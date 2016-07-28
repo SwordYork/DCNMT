@@ -3,17 +3,14 @@ import copy
 from blocks.bricks import (Tanh, Linear, FeedforwardSequence, Identity,
                            Initializable, MLP)
 from blocks.bricks.attention import SequenceContentAttention, AttentionRecurrent
-
 from blocks.bricks.base import application, lazy
 from blocks.bricks.lookup import LookupTable
 from blocks.bricks.parallel import Fork
-from blocks.bricks.recurrent import GatedRecurrent, Bidirectional, recurrent, BaseRecurrent, RecurrentStack
+from blocks.bricks.recurrent import GatedRecurrent, Bidirectional, recurrent, RecurrentStack
 from blocks.bricks.sequence_generators import (
     Readout, SoftmaxEmitter, BaseSequenceGenerator)
 from blocks.roles import add_role, WEIGHT
 from blocks.utils import shared_floatx_nans, dict_subset, dict_union
-
-from picklable_itertools.extras import equizip
 from theano import tensor
 from toolz import merge
 
@@ -80,10 +77,8 @@ class Decimator(Initializable):
         self.embedding_dim = embedding_dim
         self.lookup = LookupTable(name='embeddings')
         self.dgru_layers = dgru_layers
-        if dgru_layers == 1:
-            self.dgru = DGRU(activation=Tanh(), dim=self.dgru_state_dim)
-        else:
-            self.dgru = RecurrentStack([DGRU(activation=Tanh(), dim=self.dgru_state_dim) for _ in range(dgru_layers)])
+        self.dgru = RecurrentStack([DGRU(activation=Tanh(), dim=self.dgru_state_dim) for _ in range(dgru_layers)],
+                                   skip_connections=True)
 
         self.gru_fork = Fork([name for name in self.dgru.apply.sequences
                               if name != 'mask'], prototype=Linear(), name='gru_fork')
@@ -136,19 +131,19 @@ class RecurrentWithFork(Initializable):
         self.recurrent = proto
         self.input_dim = input_dim
         self.fork = Fork(
-            [name for name in self.recurrent.sequences
+            [name for name in self.recurrent.apply.sequences
              if name != 'mask'],
             prototype=Linear())
-        self.children = [self.recurrent.brick, self.fork]
+        self.children = [self.recurrent, self.fork]
 
     def _push_allocation_config(self):
         self.fork.input_dim = self.input_dim
-        self.fork.output_dims = [self.recurrent.brick.get_dim(name)
+        self.fork.output_dims = [self.recurrent.get_dim(name)
                                  for name in self.fork.output_names]
 
     @application(inputs=['input_', 'mask'])
     def apply(self, input_, mask=None, **kwargs):
-        return self.recurrent(
+        return self.recurrent.apply(
             mask=mask, **dict_union(self.fork.apply(input_, as_dict=True),
                                     kwargs))
 
@@ -166,15 +161,15 @@ class BidirectionalEncoder(Initializable):
         self.dgru_state_dim = dgru_state_dim
         self.decimator = Decimator(src_vocab_size, embedding_dim, dgru_state_dim, encoder_layers)
         self.bidir = Bidirectional(
-            RecurrentWithFork(GatedRecurrent(activation=Tanh(), dim=state_dim).apply, dgru_state_dim, name='with_fork'),
+            RecurrentWithFork(GatedRecurrent(activation=Tanh(), dim=state_dim), dgru_state_dim, name='with_fork'),
             name='bidir0')
 
         self.children = [self.decimator, self.bidir]
-        for layer in range(1, encoder_layers):
+        for layer_n in range(1, encoder_layers):
             self.children.append(copy.deepcopy(self.bidir))
             for child in self.children[-1].children:
                 child.input_dim = 2 * state_dim
-            self.children[-1].name = 'bidir{}'.format(layer)
+            self.children[-1].name = 'bidir{}'.format(layer_n)
 
     @application(inputs=['source_char_seq', 'source_sample_matrix', 'source_char_aux', 'source_word_mask'],
                  outputs=['representation'])
@@ -297,31 +292,7 @@ class Interpolator(Readout):
 
 
 class SequenceGeneratorDCNMT(BaseSequenceGenerator):
-    r"""A more user-friendly interface for :class:`BaseSequenceGenerator`.
-
-    Parameters
-    ----------
-    readout : instance of :class:`AbstractReadout`
-        The readout component for the sequence generator.
-    transition : instance of :class:`.BaseRecurrent`
-        The recurrent transition to be used in the sequence generator.
-        Will be combined with `attention`, if that one is given.
-    attention : object, optional
-        The attention mechanism to be added to ``transition``,
-        an instance of
-        :class:`~blocks.bricks.attention.AbstractAttention`.
-    add_contexts : bool
-        If ``True``, the
-        :class:`.AttentionRecurrent` wrapping the
-        `transition` will add additional contexts for the attended and its
-        mask.
-    \*\*kwargs : dict
-        All keywords arguments are passed to the base class. If `fork`
-        keyword argument is not provided, :class:`.Fork` is created
-        that forks all transition sequential inputs without a "mask"
-        substring in them.
-
-    """
+    """A more user-friendly interface for :class:`BaseSequenceGenerator`. """
 
     def __init__(self, trg_space_idx, readout, transition, attention=None, transition_layers=1,
                  add_contexts=True, **kwargs):
@@ -546,9 +517,9 @@ class Decoder(Initializable):
 
         # Initialize gru with special initial state
         self.transition = RecurrentStack(
-            [GRUInitialState(attended_dim=state_dim, dim=state_dim, activation=Tanh(), name='decoder_init_gru')] + [
-                GatedRecurrent(dim=state_dim, activation=Tanh(), name='decoder_gru' + str(i)) for i in
-                range(1, transition_layers)], skip_connections=True)
+            [GRUInitialState(attended_dim=state_dim, dim=state_dim, activation=Tanh(), name='decoder_gru_withinit')] +
+            [GatedRecurrent(dim=state_dim, activation=Tanh(), name='decoder_gru' + str(i))
+             for i in range(1, transition_layers)], skip_connections=True)
 
         # Initialize the attention mechanism
         self.attention = SequenceContentAttention(
@@ -560,8 +531,7 @@ class Decoder(Initializable):
             vocab_size=vocab_size,
             embedding_dim=embedding_dim,
             igru_state_dim=state_dim,
-            source_names=['states', 'feedback',
-                          self.attention.take_glimpses.outputs[0]],
+            source_names=['states', 'feedback', self.attention.take_glimpses.outputs[0]],
             readout_dim=self.vocab_size,
             emitter=SoftmaxEmitter(initial_output=trg_bos, theano_seed=theano_seed),
             igru=IGRU(dim=state_dim),

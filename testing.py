@@ -13,12 +13,12 @@ import logging
 import pprint
 
 import configurations
-from stream import get_tr_stream, get_test_stream
+from stream import get_test_stream
 
 logger = logging.getLogger(__name__)
 
 
-def main(config, tr_stream, test_stream):
+def main(config, test_stream):
     # Create Theano variables
     logger.info('Creating theano variables')
     source_char_seq = tensor.lmatrix('source_char_seq')
@@ -33,18 +33,18 @@ def main(config, tr_stream, test_stream):
     target_resample_matrix = tensor.tensor3('target_resample_matrix')
     target_prev_char_seq = tensor.lmatrix('target_prev_char_seq')
     target_prev_char_aux = tensor.matrix('target_prev_char_aux')
-    target_bos_idx = tr_stream.trg_bos
-    target_space_idx = tr_stream.space_idx['target']
+
+    target_bos_idx = test_stream.trg_bos
+    target_space_idx = test_stream.space_idx['target']
 
     # Construct model
     logger.info('Building RNN encoder-decoder')
 
-    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'],
-                                   config['char_enc_nhids'], config['enc_nhids'])
+    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['char_enc_nhids'],
+                                   config['enc_nhids'], config['encoder_layers'])
 
-    decoder = Decoder(
-        config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
-        config['enc_nhids'] * 2, target_space_idx, target_bos_idx)
+    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
+                      config['enc_nhids'] * 2, config['transition_layers'], target_space_idx, target_bos_idx)
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)
@@ -85,7 +85,7 @@ def main(config, tr_stream, test_stream):
     main_loop = MainLoop(
         model=training_model,
         algorithm=None,
-        data_stream=tr_stream,
+        data_stream=None,
         extensions=extensions
     )
 
@@ -108,7 +108,6 @@ if __name__ == '__main__':
     configuration = getattr(configurations, args.proto)()
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))
     # Get data streams and call main
-    main(configuration, get_tr_stream(**configuration),
-         get_test_stream(**configuration))
+    main(configuration, get_test_stream(**configuration))
 
 

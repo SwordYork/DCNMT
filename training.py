@@ -1,17 +1,3 @@
-"""Encoder-Decoder with search for machine translation.
-
-In this demo, encoder-decoder architecture with attention mechanism is used for
-machine translation. The attention mechanism is implemented according to
-[BCB]_. The training data used is WMT15 Czech to English corpus, which you have
-to download, preprocess and put to your 'datadir' in the config file. Note
-that, you can use `prepare_data.py` script to download and apply all the
-preprocessing steps needed automatically.  Please see `prepare_data.py` for
-further options of preprocessing.
-
-.. [BCB] Dzmitry Bahdanau, Kyunghyun Cho and Yoshua Bengio. Neural
-   Machine Translation by Jointly Learning to Align and Translate.
-"""
-
 import logging
 
 from collections import Counter
@@ -22,7 +8,7 @@ from toolz import merge
 from blocks.algorithms import (GradientDescent, StepClipping, AdaDelta, CompositeRule)
 from blocks.extensions import FinishAfter, Printing, Timing
 from blocks.filter import VariableFilter
-from blocks.graph import ComputationGraph, apply_noise, apply_dropout
+from blocks.graph import ComputationGraph, apply_noise
 from blocks.initialization import IsotropicGaussian, Orthogonal, Constant
 from blocks.main_loop import MainLoop
 from blocks.model import Model
@@ -92,21 +78,15 @@ def main(config, tr_stream, dev_stream):
     encoder.biases_init = decoder.biases_init = Constant(0)
     encoder.push_initialization_config()
     decoder.push_initialization_config()
-    encoder.decimator.dgru.weights_init = Orthogonal()
-    encoder.bidir.prototype.weights_init = Orthogonal()
+    for layer_n in range(config['encoder_layers']):
+        encoder.decimator.dgru.transitions[layer_n].weights_init = Orthogonal()
+        encoder.children[1 + layer_n].prototype.recurrent.weights_init = Orthogonal()
     decoder.interpolator.igru.weights_init = Orthogonal()
-    decoder.interpolator.feedback_brick.dgru.weights_init = Orthogonal()
-    decoder.transition.weights_init = Orthogonal()
+    decoder.interpolator.feedback_brick.dgru.transitions[0].weights_init = Orthogonal()
+    for layer_n in range(config['transition_layers']):
+        decoder.transition.transitions[layer_n].weights_init = Orthogonal()
     encoder.initialize()
     decoder.initialize()
-
-    # apply dropout for regularization
-    if config['dropout'] < 1.0:
-        # dropout is applied to the output of maxout in ghog
-        logger.info('Applying dropout')
-        dropout_inputs = [x for x in cg.intermediary_variables
-                          if x.name == 'maxout_apply_output']
-        cg = apply_dropout(cg, dropout_inputs, config['dropout'])
 
     # Apply weight noise for regularization
     if config['weight_noise_ff'] > 0.0:

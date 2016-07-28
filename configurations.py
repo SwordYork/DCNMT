@@ -22,13 +22,13 @@ def get_config_en2fr():
     # Dimension of the word embedding matrix in encoder/decoder
     config['enc_embed'] = 64
     config['dec_embed'] = 64
-    config['transition_layers'] = 2
+    config['transition_layers'] = 1
     config['encoder_layers'] = 2
 
     # Optimization related ----------------------------------------------------
 
     # Batch size
-    config['batch_size'] = 72
+    config['batch_size'] = 80
 
     # This many batches will be read ahead and sorted
     config['sort_k_batches'] = 12
@@ -50,8 +50,6 @@ def get_config_en2fr():
     # Weight noise flag for recurrent layers
     config['weight_noise_rec'] = False
 
-    # Dropout ratio, applied only after readout maxout
-    config['dropout'] = 1.0
 
     # Vocabulary/dataset related ----------------------------------------------
 

@@ -194,6 +194,7 @@ def get_tr_stream(src_vocab, trg_vocab, src_data, trg_data,
         src_vocab if isinstance(src_vocab, dict)
         else pickle.load(open(src_vocab, 'rb')),
         bos_idx=0, eos_idx=src_vocab_size - 1, unk_idx=unk_id)
+
     trg_vocab = _ensure_special_tokens(
         trg_vocab if isinstance(trg_vocab, dict) else
         pickle.load(open(trg_vocab, 'rb')),
@@ -254,17 +255,28 @@ def get_dev_stream(val_set=None, src_vocab=None, src_vocab_size=120,
     return dev_stream
 
 
-def get_test_stream(test_set=None, src_vocab=None, src_vocab_size=120,
-                   unk_id=1, **kwargs):
+def get_test_stream(test_set=None, src_vocab=None, trg_vocab=None, src_vocab_size=120, trg_vocab_size=120, unk_id=1,
+                    bos_token='<S>', **kwargs):
     """Setup development set stream if necessary."""
     test_stream = None
-    if test_set is not None and src_vocab is not None:
+    if test_set is not None and src_vocab is not None and trg_vocab is not None:
         src_vocab = _ensure_special_tokens(
             src_vocab if isinstance(src_vocab, dict) else
             pickle.load(open(src_vocab, 'rb')),
             bos_idx=0, eos_idx=src_vocab_size - 1, unk_idx=unk_id)
+
+        trg_vocab = _ensure_special_tokens(
+            trg_vocab if isinstance(trg_vocab, dict) else
+            pickle.load(open(trg_vocab, 'rb')),
+            bos_idx=0, eos_idx=trg_vocab_size - 1, unk_idx=unk_id)
+
         test_src_dataset = TextFileWithSEOSS([test_set], src_vocab, None, level='character')
         test_stream = DataStream(test_src_dataset)
+        test_stream.space_idx = {'source': src_vocab[' '], 'target': trg_vocab[' ']}
+        test_stream.trg_bos = trg_vocab[bos_token]
+        test_stream.trg_vocab = trg_vocab
+        test_stream.eos_token = '</S>'
+
     return test_stream
 
 

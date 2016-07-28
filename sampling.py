@@ -476,11 +476,10 @@ class BleuTester(TrainingExtension, SamplingBase):
         total_cost = 0.0
 
         # Get target vocabulary
-        sources = self._get_attr_rec(self.main_loop, 'data_stream')
-        trg_vocab = sources.data_streams[1].dataset.dictionary
+        trg_vocab = self.data_stream.trg_vocab
         self.trg_vocab = trg_vocab
         self.trg_ivocab = {v: k for k, v in trg_vocab.items()}
-        trg_eos_sym = sources.data_streams[1].dataset.eos_token
+        trg_eos_sym = self.data_stream.eos_token
         self.trg_eos_idx = trg_vocab[trg_eos_sym]
 
         if self.verbose:
