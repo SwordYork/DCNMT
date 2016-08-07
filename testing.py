@@ -71,7 +71,7 @@ def main(config, test_stream):
         search_model = Model(generated)
         _, samples = VariableFilter(
             bricks=[decoder.sequence_generator], name="outputs")(
-            ComputationGraph(generated[1]))  # generated[1] is next_outputs
+            ComputationGraph(generated[config['transition_layers']]))  # generated[1] is next_outputs
 
         logger.info("Building bleu tester")
         extensions.append(
