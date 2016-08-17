@@ -7,7 +7,7 @@ from fuel.transformers import (
     Merge, Batch, Filter, Padding, SortMapping, Unpack, Mapping)
 
 import pickle
-
+import configurations
 from itertools import chain
 
 
@@ -281,17 +281,8 @@ def get_test_stream(test_set=None, src_vocab=None, trg_vocab=None, src_vocab_siz
 
 
 if __name__ == '__main__':
-    # test train stream
-    import argparse
-    import configurations
-
-    # Get the arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--proto", default="get_config_en2fr",
-                        help="Prototype config to use for config")
-    args = parser.parse_args()
-
-    configuration = getattr(configurations, args.proto)()
+    # test stream
+    configuration = configurations.get_config()
     tr = get_tr_stream(**configuration)
     total = 0
     # test

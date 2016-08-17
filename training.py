@@ -19,7 +19,6 @@ from checkpoint import CheckpointNMT, LoadNMT
 from model import BidirectionalEncoder, Decoder
 from sampling import BleuValidator, Sampler, CostCurve
 
-import argparse
 import pprint
 
 import configurations
@@ -27,12 +26,6 @@ from stream import get_tr_stream, get_dev_stream
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-# Get the arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("--proto", default="get_config_en2fr",
-                    help="Prototype config to use for config")
-args = parser.parse_args()
 
 
 def main(config, tr_stream, dev_stream):
@@ -187,7 +180,7 @@ def main(config, tr_stream, dev_stream):
 
 if __name__ == "__main__":
     # Get configurations for model
-    configuration = getattr(configurations, args.proto)()
+    configuration = configurations.get_config()
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))
     # Get data streams and call main
     main(configuration, get_tr_stream(**configuration),

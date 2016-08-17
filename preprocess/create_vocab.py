@@ -3,6 +3,7 @@
 import pickle
 import logging
 import os
+import sys 
 
 from collections import Counter
 
@@ -72,7 +73,10 @@ def create_vocabularies(src_file, trg_file, config):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger('create_vocab')
-    configs = {'source': 'en', 'target': 'fr', 'src_vocab_size': 120, 'trg_vocab_size': 120}
-    src_file_name = 'all.en-fr.en.tok.shuf'
-    trg_file_name = 'all.en-fr.fr.tok.shuf'
+    if len(sys.argv) != 7:
+        sys.exit(-1)
+
+    configs = {'source': sys.argv[1], 'target': sys.argv[2], 'src_vocab_size': int(sys.argv[3]), 'trg_vocab_size': int(sys.argv[4])}
+    src_file_name = sys.argv[5]
+    trg_file_name = sys.argv[6]
     create_vocabularies(src_file_name, trg_file_name, configs)

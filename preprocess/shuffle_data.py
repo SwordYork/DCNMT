@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import uuid
+import sys
 
 from picklable_itertools.extras import equizip
 
@@ -61,7 +62,9 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger('shuffle_data')
 
+    if len(sys.argv) != 3:
+        sys.exit(-1)
     # Shuffle datasets
-    src_file_name = 'all.en-fr.en.tok'
-    trg_file_name = 'all.en-fr.fr.tok'
+    src_file_name = sys.argv[1]
+    trg_file_name = sys.argv[2]
     shuffle_parallel(src_file_name, trg_file_name)

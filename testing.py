@@ -8,7 +8,6 @@ from blocks.model import Model
 from checkpoint import LoadNMT
 from model import BidirectionalEncoder, Decoder
 from sampling import BleuTester
-import argparse
 import logging
 import pprint
 
@@ -97,15 +96,9 @@ def main(config, test_stream):
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Get the arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("--proto", default="get_config_en2fr",
-                    help="Prototype config to use for config")
-args = parser.parse_args()
-
 if __name__ == '__main__':
     # Get configurations for model
-    configuration = getattr(configurations, args.proto)()
+    configuration = configurations.get_config()
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))
     # Get data streams and call main
     main(configuration, get_test_stream(**configuration))
