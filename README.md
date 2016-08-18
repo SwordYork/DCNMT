@@ -2,6 +2,12 @@ Deep Character-Level  Neural Machine Translation
 ============
 We implement a **Deep Character-Level Neural Machine Translation** based on [Theano](https://github.com/Theano/Theano) and [Blocks](https://github.com/mila-udem/blocks). Please intall relative packages according to [Blocks](http://blocks.readthedocs.io/en/latest/setup.html) before testing our program. Note that, please use Python3 instead of Python2. There will be some problem with Python2. 
 
+The architecture of DCNMT is shown in the following figure which is a single, large neural network.
+![DCNMT](/dcnmt.png?raw=true "The architecture of DCNMT")
+
+
+
+
 Training
 -----------------------
 If you want to train you own model, please prepare a parallel linguistics corpus, like corpus in [WMT](http://www.statmt.org/wmt15/translation-task.html). A GPU with 12GB memory will be helpful. You could just run `bash train.sh` or 
@@ -24,5 +30,8 @@ Please prepare a wordlist to calculate embedding, then just run `python embeddin
 
 This program have been tested under the latest Theano and Blocks, it may fail to run because of different version. If you failed to run these scripts, please make sure that you can run the examples of [Blocks](https://github.com/mila-udem/blocks-examples).
 
-Reference:
 
+References:
+----------------------
+1. [An Efficient Character-Level Neural Machine Translation](https://arxiv.org/abs/1608.04738)
+2. [Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473)
