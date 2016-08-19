@@ -20,7 +20,7 @@ follow these steps.
 
 Testing
 -----------------------
-To perform testing, just run `python testing.py`. Note that, Python3 is required. It takes about an hour to do translation on 3000 sentences if you have a moderate GPU.
+We have trained a model of English to French translation, you can download it from [dropbox](https://www.dropbox.com/sh/eiaexn8q2sf277s/AADQ4RKWEsCIGkeKUUyMHh2aa?dl=0), then just put them (dcnmt_en2fr, data, configurations.py) in this directory. To perform testing, just run `python testing.py`. Note that, Python3 is required. It takes about an hour to do translation on 3000 sentences if you have a moderate GPU.
 
 
 Embedding
