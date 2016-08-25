@@ -1,4 +1,4 @@
-def get_config_en2fr():
+def get_config():
     config = {}
     # Where to save model, this corresponds to 'prefix' in groundhog
     config['saveto'] = 'dcnmt_en2fr'
