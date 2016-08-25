@@ -1,6 +1,6 @@
 Deep Character-Level  Neural Machine Translation
 ============
-We implement a **Deep Character-Level Neural Machine Translation** based on [Theano](https://github.com/Theano/Theano) and [Blocks](https://github.com/mila-udem/blocks). Please intall relative packages according to [Blocks](http://blocks.readthedocs.io/en/latest/setup.html) before testing our program. Note that, please use Python 3 instead of Python 2. There will be some problem with Python 2. 
+We implement a [**Deep Character-Level Neural Machine Translation**](https://arxiv.org/abs/1608.04738) based on [Theano](https://github.com/Theano/Theano) and [Blocks](https://github.com/mila-udem/blocks). Please intall relative packages according to [Blocks](http://blocks.readthedocs.io/en/latest/setup.html) before testing our program. Note that, please use Python 3 instead of Python 2. There will be some problems with Python 2. 
 
 The architecture of DCNMT is shown in the following figure which is a single, large neural network.
 ![DCNMT](/dcnmt.png?raw=true "The architecture of DCNMT")
@@ -10,7 +10,7 @@ The architecture of DCNMT is shown in the following figure which is a single, la
 
 Training
 -----------------------
-If you want to train you own model, please prepare a parallel linguistics corpus, like corpus in [WMT](http://www.statmt.org/wmt15/translation-task.html). A GPU with 12GB memory will be helpful. You could just run `bash train.sh` or 
+If you want to train your own model, please prepare a parallel linguistics corpus, like corpus in [WMT](http://www.statmt.org/wmt15/translation-task.html). A GPU with 12GB memory will be helpful. You could just run `bash train.sh` or 
 follow these steps.
  1. Download the relative scripts (tokenizer.perl, multi-bleu.perl) and nonbreaking_prefix from [mose_git](https://raw.githubusercontent.com/moses-smt/mosesdecoder/master/scripts).
  2. Download the datasets, then tokenize and shuffle the cropus.
