@@ -113,7 +113,7 @@ read -p '==>' trg_vocab_size
 python create_vocab.py $source_language $target_language $src_vocab_size $trg_vocab_size $tok_source_file.shuf $tok_target_file.shuf
 
 cd ..
-if [ -f configuration.py ]; then
+if [ -f configurations.py ]; then
     cp configurations.py configurations_backup.py
 fi 
 

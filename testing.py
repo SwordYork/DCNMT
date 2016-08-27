@@ -39,11 +39,13 @@ def main(config, test_stream):
     # Construct model
     logger.info('Building RNN encoder-decoder')
 
-    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['char_enc_nhids'],
-                                   config['enc_nhids'], config['encoder_layers'])
+    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['src_dgru_nhids'],
+                                   config['enc_nhids'], config['src_dgru_depth'], config['bidir_encoder_depth'])
 
-    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
-                      config['enc_nhids'] * 2, config['transition_layers'], target_space_idx, target_bos_idx)
+    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['trg_dgru_nhids'], config['trg_igru_nhids'], 
+                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'], config['trg_igru_depth'],
+                      config['trg_dgru_depth'], target_space_idx, target_bos_idx)
+
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)
@@ -70,7 +72,7 @@ def main(config, test_stream):
         search_model = Model(generated)
         _, samples = VariableFilter(
             bricks=[decoder.sequence_generator], name="outputs")(
-            ComputationGraph(generated[config['transition_layers']]))  # generated[1] is next_outputs
+            ComputationGraph(generated[config['transition_depth']]))  # generated[config['transition_depth']] is next_outputs
 
         logger.info("Building bleu tester")
         extensions.append(

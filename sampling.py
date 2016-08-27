@@ -158,7 +158,7 @@ class CostCurve(TrainingDataMonitoring):
 class Sampler(SimpleExtension, SamplingBase):
     """Random Sampling from model."""
 
-    def __init__(self, model, data_stream, hook_samples=1, transition_layers=1,
+    def __init__(self, model, data_stream, hook_samples=1, transition_depth=1,
                  src_vocab=None, trg_vocab=None, src_ivocab=None,
                  trg_ivocab=None, src_vocab_size=None, **kwargs):
         super(Sampler, self).__init__(**kwargs)
@@ -168,7 +168,7 @@ class Sampler(SimpleExtension, SamplingBase):
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
         self.src_ivocab = src_ivocab
-        self.transition_layers = transition_layers
+        self.transition_depth = transition_depth
         self.trg_ivocab = trg_ivocab
         self.src_vocab_size = src_vocab_size
         self.is_synced = False
@@ -214,7 +214,7 @@ class Sampler(SimpleExtension, SamplingBase):
             input_length, input_dict = self.build_input_dict(input_[i], self.src_vocab)
             target_length = self._get_true_length(target_[i], self.trg_vocab) + 1
             sfn = self.sampling_fn(**input_dict)
-            outputs = sfn[self.transition_layers]
+            outputs = sfn[self.transition_depth]
             costs = sfn[-1]
             outputs = outputs.flatten()
             costs = costs.flatten()

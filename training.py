@@ -49,11 +49,12 @@ def main(config, tr_stream, dev_stream):
     # Construct model
     logger.info('Building RNN encoder-decoder')
 
-    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['char_enc_nhids'],
-                                   config['enc_nhids'], config['encoder_layers'])
+    encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['src_dgru_nhids'],
+                                   config['enc_nhids'], config['src_dgru_depth'], config['bidir_encoder_depth'])
 
-    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['char_dec_nhids'], config['dec_nhids'],
-                      config['enc_nhids'] * 2, config['transition_layers'], target_space_idx, target_bos_idx)
+    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['trg_dgru_nhids'], config['trg_igru_nhids'], 
+                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'], config['trg_igru_depth'],
+                      config['trg_dgru_depth'], target_space_idx, target_bos_idx)
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)
@@ -71,12 +72,12 @@ def main(config, tr_stream, dev_stream):
     encoder.biases_init = decoder.biases_init = Constant(0)
     encoder.push_initialization_config()
     decoder.push_initialization_config()
-    for layer_n in range(config['encoder_layers']):
+    for layer_n in range(config['bidir_encoder_depth']):
         encoder.decimator.dgru.transitions[layer_n].weights_init = Orthogonal()
         encoder.children[1 + layer_n].prototype.recurrent.weights_init = Orthogonal()
     decoder.interpolator.igru.weights_init = Orthogonal()
     decoder.interpolator.feedback_brick.dgru.transitions[0].weights_init = Orthogonal()
-    for layer_n in range(config['transition_layers']):
+    for layer_n in range(config['transition_depth']):
         decoder.transition.transitions[layer_n].weights_init = Orthogonal()
     encoder.initialize()
     decoder.initialize()
@@ -141,14 +142,14 @@ def main(config, tr_stream, dev_stream):
         search_model = Model(generated)
         _, samples = VariableFilter(
             bricks=[decoder.sequence_generator], name="outputs")(
-            ComputationGraph(generated[config['transition_layers']]))  # generated[transition_layers] is next_outputs
+            ComputationGraph(generated[config['transition_depth']]))  # generated[transition_depth] is next_outputs
 
     # Add sampling
     if config['hook_samples'] >= 1:
         logger.info("Building sampler")
         extensions.append(
             Sampler(model=search_model, data_stream=tr_stream,
-                    hook_samples=config['hook_samples'], transition_layers=config['transition_layers'],
+                    hook_samples=config['hook_samples'], transition_depth=config['transition_depth'],
                     every_n_batches=config['sampling_freq'], src_vocab_size=config['src_vocab_size']))
 
     # Add early stopping based on bleu

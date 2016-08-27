@@ -10,20 +10,28 @@ def get_config():
     # Model related -----------------------------------------------------------
 
     # Sequences longer than this will be discarded
-    config['seq_char_len'] = 300
-    config['seq_word_len'] = 50
+    config['max_src_seq_char_len'] = 300
+    config['max_src_seq_word_len'] = 50
+    config['max_trg_seq_char_len'] = 300
+    config['max_trg_seq_word_len'] = 50
 
     # Number of hidden units in encoder/decoder GRU
-    config['char_enc_nhids'] = 512
-    config['char_dec_nhids'] = 512
+    config['src_dgru_nhids'] = 512
     config['enc_nhids'] = 1024
     config['dec_nhids'] = 1024
+    config['trg_dgru_nhids'] = 512
+    config['trg_igru_nhids'] = 1024
+
 
     # Dimension of the word embedding matrix in encoder/decoder
     config['enc_embed'] = 64
     config['dec_embed'] = 64
-    config['transition_layers'] = 1
-    config['encoder_layers'] = 2
+    config['src_dgru_depth'] = 2
+    config['bidir_encoder_depth'] = 2
+    config['transition_depth'] = 1
+    config['trg_dgru_depth'] = 1
+    config['trg_igru_depth'] = 1
+    
 
     # Optimization related ----------------------------------------------------
 
