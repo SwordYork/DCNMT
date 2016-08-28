@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from collections import Counter
 
@@ -72,11 +73,14 @@ def main(config, tr_stream, dev_stream):
     encoder.biases_init = decoder.biases_init = Constant(0)
     encoder.push_initialization_config()
     decoder.push_initialization_config()
-    for layer_n in range(config['bidir_encoder_depth']):
+    for layer_n in range(config['src_dgru_depth']):
         encoder.decimator.dgru.transitions[layer_n].weights_init = Orthogonal()
+    for layer_n in range(config['bidir_encoder_depth']):
         encoder.children[1 + layer_n].prototype.recurrent.weights_init = Orthogonal()
-    decoder.interpolator.igru.weights_init = Orthogonal()
-    decoder.interpolator.feedback_brick.dgru.transitions[0].weights_init = Orthogonal()
+    for layer_n in range(config['trg_igru_depth']):        
+        decoder.interpolator.igru.transitions[layer_n].weights_init = Orthogonal()
+    for layer_n in range(config['trg_dgru_depth']):        
+        decoder.interpolator.feedback_brick.dgru.transitions[layer_n].weights_init = Orthogonal()
     for layer_n in range(config['transition_depth']):
         decoder.transition.transitions[layer_n].weights_init = Orthogonal()
     encoder.initialize()
@@ -180,6 +184,7 @@ def main(config, tr_stream, dev_stream):
 
 
 if __name__ == "__main__":
+    assert sys.version_info >= (3,4)
     # Get configurations for model
     configuration = configurations.get_config()
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))
