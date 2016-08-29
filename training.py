@@ -77,8 +77,11 @@ def main(config, tr_stream, dev_stream):
         encoder.decimator.dgru.transitions[layer_n].weights_init = Orthogonal()
     for layer_n in range(config['bidir_encoder_depth']):
         encoder.children[1 + layer_n].prototype.recurrent.weights_init = Orthogonal()
-    for layer_n in range(config['trg_igru_depth']):        
-        decoder.interpolator.igru.transitions[layer_n].weights_init = Orthogonal()
+    if config['trg_igru_depth'] == 1:
+        decoder.interpolator.igru.weights_init = Orthogonal()
+    else:
+        for layer_n in range(config['trg_igru_depth']):        
+            decoder.interpolator.igru.transitions[layer_n].weights_init = Orthogonal()
     for layer_n in range(config['trg_dgru_depth']):        
         decoder.interpolator.feedback_brick.dgru.transitions[layer_n].weights_init = Orthogonal()
     for layer_n in range(config['transition_depth']):

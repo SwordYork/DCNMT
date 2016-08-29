@@ -198,7 +198,7 @@ class IGRU(GatedRecurrent):
     def __init__(self, dim, activation=None, gate_activation=None,
                  **kwargs):
         super(IGRU, self).__init__(dim, activation, gate_activation, **kwargs)
-
+    
     @recurrent(sequences=['mask', 'inputs', 'gate_inputs', 'input_states'],
                states=['states'], outputs=['states'], contexts=[])
     def apply(self, inputs, gate_inputs, states, input_states, mask=None):
@@ -225,20 +225,35 @@ class IGRU(GatedRecurrent):
         output : :class:`~tensor.TensorVariable`
             Next states of the network.
         """
+        # put masked states at last may be possible
         if mask:
             states = (mask[:, None] * states + (1 - mask[:, None]) * input_states)
         gate_values = self.gate_activation.apply(
             states.dot(self.state_to_gates) + gate_inputs)
         update_values = gate_values[:, :self.dim]
         reset_values = gate_values[:, self.dim:]
+        #states_reset = (states + input_states) * reset_values / 2
         states_reset = states * reset_values
         next_states = self.activation.apply(
             states_reset.dot(self.state_to_state) + inputs)
         next_states = (next_states * update_values +
                        states * (1 - update_values))
-
         return next_states
     
+    # using constant initial_states
+    def _allocate(self):
+        self.parameters.append(shared_floatx_nans((self.dim, self.dim),
+                                                  name='state_to_state'))
+        self.parameters.append(shared_floatx_nans((self.dim, 2 * self.dim),
+                                                  name='state_to_gates'))
+        for i in range(2):
+            if self.parameters[i]:
+                add_role(self.parameters[i], WEIGHT)
+         
+    @application(outputs=apply.states)
+    def initial_states(self, batch_size, *args, **kwargs):        
+        return tensor.zeros((batch_size, self.dim))
+        #return [tensor.repeat(self.parameters[2][None, :], batch_size, 0)]
     
 class UpperIGRU(GatedRecurrent):
     """ Upper IGRU in interpolator """
@@ -298,7 +313,7 @@ class Interpolator(Readout):
             self.igru = RecurrentStack([IGRU(dim=igru_state_dim, name='igru')] + 
                                        [UpperIGRU(dim=igru_state_dim, activation=Tanh(), name='upper_igru' + str(i))
                                         for i in range(1, igru_depth)],
-                                        skip_connections=True) 
+                                        skip_connections=False) 
         self.igru_depth = igru_depth
         self.trg_dgru_depth = trg_dgru_depth
         self.lookup = LookupTable(name='embeddings')
@@ -556,26 +571,25 @@ class SequenceGeneratorDCNMT(BaseSequenceGenerator):
         # to simplify this code.
         igru_initial_states = self.readout.initial_igru_outputs(batch_size)
         if self.igru_depth == 1:
-            igru_initial_states_dict = {'igru_states'+RECURRENTSTACK_SEPARATOR+str(0):igru_initial_states}
+            igru_initial_states_dict = {self.igru_states_name[0]:igru_initial_states}
         else:
-            igru_initial_states_dict = {'igru_states'+RECURRENTSTACK_SEPARATOR+str(i):igru_initial_states[i] 
+            igru_initial_states_dict = {self.igru_states_name[i]:igru_initial_states[i] 
                                         for i in range(self.igru_depth)} 
         
-        feedback = self.readout.single_feedback(self.readout.initial_outputs(batch_size), batch_size)
+        initial_outputs=self.readout.initial_outputs(batch_size)
+        feedback = self.readout.single_feedback(initial_outputs, batch_size)
         if self.trg_dgru_depth == 1:            
-            feedback_dict = {self.feedback_name[0]:feedback}
-            readout_feedback_ = feedback
+            feedback_dict = {self.feedback_name[0]:feedback, 'readout_feedback':feedback}
         else:
-            feedback_dict = {self.feedback_name[i]:feedback[i] for i in range(self.trg_dgru_depth)}
-            readout_feedback_ = feedback[-1]
+            feedback_dict = {'readout_feedback':feedback[-1]}
+            feedback_dict.update({self.feedback_name[i]:feedback[i] for i in range(self.trg_dgru_depth)})
         
         state_dict = dict(
             self.transition.initial_states(
                 batch_size, as_dict=True, *args, **kwargs),
-            outputs=self.readout.initial_outputs(batch_size),
-            **feedback_dict,
-            **igru_initial_states_dict,
-            readout_feedback=readout_feedback_)
+            outputs=initial_outputs)            
+        state_dict.update(feedback_dict)
+        state_dict.update(igru_initial_states_dict)
         return [state_dict[state_name]
                 for state_name in self.generate.states]
 
