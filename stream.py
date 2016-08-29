@@ -170,7 +170,7 @@ class _oov_to_unk(object):
 class _too_long(object):
     """Filters sequences longer than given sequence length."""
 
-    def __init__(self, unk_id, space_idx, max_src_seq_char_len, max_src_seq_word_len, 
+    def __init__(self, unk_id, space_idx, max_src_seq_char_len, max_src_seq_word_len,
                  max_trg_seq_char_len, max_trg_seq_word_len):
         self.unk_id = unk_id
         self.max_src_seq_char_len = max_src_seq_char_len
@@ -189,7 +189,7 @@ class _too_long(object):
 
 def get_tr_stream(src_vocab, trg_vocab, src_data, trg_data,
                   src_vocab_size=120, trg_vocab_size=120, unk_id=1, bos_token='<S>', max_src_seq_char_len=300,
-                  max_src_seq_word_len=50, max_trg_seq_char_len=300, max_trg_seq_word_len=50, 
+                  max_src_seq_word_len=50, max_trg_seq_char_len=300, max_trg_seq_word_len=50,
                   batch_size=80, sort_k_batches=12, **kwargs):
     """Prepares the training data stream."""
 
@@ -215,7 +215,7 @@ def get_tr_stream(src_vocab, trg_vocab, src_data, trg_data,
 
     # Filter sequences that are too long
     stream = Filter(stream, predicate=_too_long(unk_id, [src_vocab[' '], trg_vocab[' ']],
-                                        max_src_seq_char_len, max_src_seq_word_len, 
+                                        max_src_seq_char_len, max_src_seq_word_len,
                                         max_trg_seq_char_len, max_trg_seq_word_len))
 
     # Replace out of vocabulary tokens with unk token

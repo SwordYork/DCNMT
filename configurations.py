@@ -31,7 +31,7 @@ def get_config():
     config['transition_depth'] = 1
     config['trg_dgru_depth'] = 1
     config['trg_igru_depth'] = 1
-    
+
 
     # Optimization related ----------------------------------------------------
 

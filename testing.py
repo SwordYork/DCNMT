@@ -42,7 +42,7 @@ def main(config, test_stream):
     encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['src_dgru_nhids'],
                                    config['enc_nhids'], config['src_dgru_depth'], config['bidir_encoder_depth'])
 
-    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['trg_dgru_nhids'], config['trg_igru_nhids'], 
+    decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['trg_dgru_nhids'], config['trg_igru_nhids'],
                       config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'], config['trg_igru_depth'],
                       config['trg_dgru_depth'], target_space_idx, target_bos_idx)
 
