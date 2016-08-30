@@ -313,7 +313,7 @@ class Interpolator(Readout):
             self.igru = RecurrentStack([IGRU(dim=igru_state_dim, name='igru')] +
                                        [UpperIGRU(dim=igru_state_dim, activation=Tanh(), name='upper_igru' + str(i))
                                         for i in range(1, igru_depth)],
-                                        skip_connections=False)
+                                        skip_connections=True)
         self.igru_depth = igru_depth
         self.trg_dgru_depth = trg_dgru_depth
         self.lookup = LookupTable(name='embeddings')
@@ -662,10 +662,11 @@ class Decoder(Initializable):
 
         # for compatible
         if self.igru_state_dim == self.state_dim:
-            post_merge_layer = Identity().apply
+            post_merge_layer = [Identity().apply]
         else:
-            post_merge_layer = Linear(input_dim=self.state_dim,
-                                      output_dim=self.igru_state_dim).apply
+            post_merge_layer = [Linear(input_dim=self.state_dim,
+                                      output_dim=self.igru_state_dim).apply,
+                                Tanh().apply]
 
         self.interpolator = Interpolator(
             vocab_size=vocab_size,
@@ -677,8 +678,7 @@ class Decoder(Initializable):
             readout_dim=self.vocab_size,
             emitter=SoftmaxEmitter(initial_output=trg_bos, theano_seed=theano_seed),
             feedback_brick=Decimator(vocab_size, embedding_dim, self.dgru_state_dim, trg_dgru_depth),
-            post_merge=InitializableFeedforwardSequence(
-                [post_merge_layer]),
+            post_merge=InitializableFeedforwardSequence(post_merge_layer),
             merged_dim=igru_state_dim)
 
         # Build sequence generator accordingly
