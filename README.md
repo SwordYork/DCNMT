@@ -42,9 +42,13 @@ Please prepare a wordlist to calculate embedding, then just run `python embeddin
 Spelling Correction
 -----------------------
 It is the special feature of DCNMT model. For example,
+
 > *Source:* Unlike in Canada, the American States are **responisble** for the **orgainisation** of federal elections in the United States.
+
 > *Ref:* Contrairement au Canada, les États américains sont **responsables** de **l’organisation** des élections fédérales aux États-Unis.
+
 > *Google:*  Contrairement au Canada, les États américains sont **responisble** pour le **orgainisation** des élections fédérales aux États-Unis.
+
 > *DCNMT:* Contrairement au Canada, les États américains sont **responsables** de **l’organisation** des élections fédérales aux États-Unis.
 
 The performance of misspelling correction would be analyzed later.
