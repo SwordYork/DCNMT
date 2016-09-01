@@ -89,18 +89,6 @@ def main(config, tr_stream, dev_stream):
     encoder.initialize()
     decoder.initialize()
 
-    # Apply weight noise for regularization
-    if config['weight_noise_ff'] > 0.0:
-        logger.info('Applying weight noise to ff layers')
-        enc_params = Selector(encoder.lookup).get_params().values()
-        enc_params += Selector(encoder.fwd_fork).get_params().values()
-        enc_params += Selector(encoder.back_fork).get_params().values()
-        dec_params = Selector(
-            decoder.sequence_generator.readout).get_params().values()
-        dec_params += Selector(
-            decoder.sequence_generator.fork).get_params().values()
-        dec_params += Selector(decoder.state_init).get_params().values()
-        cg = apply_noise(cg, enc_params + dec_params, config['weight_noise_ff'])
 
     # Print shapes
     shapes = [param.get_value().shape for param in cg.parameters]
@@ -138,7 +126,7 @@ def main(config, tr_stream, dev_stream):
                               before_first_epoch=True, prefix='tra')
     extensions = [
         train_monitor, Timing(),
-        Printing(after_batch=True),
+        Printing(every_n_batches=config['print_freq']),
         FinishAfter(after_n_batches=config['finish_after']),
         CheckpointNMT(config['saveto'], every_n_batches=config['save_freq'])]
 

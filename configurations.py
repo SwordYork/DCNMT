@@ -50,15 +50,6 @@ def get_config():
     # Std of weight initialization
     config['weight_scale'] = 0.01
 
-    # Regularization related --------------------------------------------------
-
-    # Weight noise flag for feed forward layers
-    config['weight_noise_ff'] = False
-
-    # Weight noise flag for recurrent layers
-    config['weight_noise_rec'] = False
-
-
     # Vocabulary/dataset related ----------------------------------------------
 
     # Root directory for dataset
@@ -134,6 +125,9 @@ def get_config():
 
     # Save model after this many updates
     config['save_freq'] = 500
+
+    # Print training status after this many updates
+    config['print_freq'] = 10
 
     # Show samples from model after this many updates
     config['sampling_freq'] = 30
