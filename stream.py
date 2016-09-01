@@ -82,8 +82,13 @@ class PaddingWithEOS(Padding):
             if source not in self.mask_sources:
                 batch_with_masks.append(source_batch)
                 continue
-            word_shapes = [sum(numpy.asarray(sample) == self.space_idx[source]) for sample in source_batch]
-            shapes = [numpy.asarray(sample).shape for sample in source_batch]
+            word_shapes = [0] * len(source_batch)
+            shapes = [0] * len(source_batch)
+            for i, sample in enumerate(source_batch):
+                np_sample = numpy.asarray(sample)
+                word_shapes[i] = numpy.count_nonzero(np_sample == self.space_idx[source])
+                shapes[i] = np_sample.shape
+
             lengths = [shape[0] for shape in shapes]
             max_word_len = max(word_shapes)
             add_space_length = []
