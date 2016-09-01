@@ -8,7 +8,6 @@ from fuel.transformers import (
 
 import pickle
 import configurations
-from itertools import chain
 
 
 def _ensure_special_tokens(vocab, bos_idx=0, eos_idx=0, unk_idx=1):
@@ -109,13 +108,14 @@ class PaddingWithEOS(Padding):
 
             sample_matrix = numpy.zeros((len(source_batch), max_word_len, max_char_seq_length),
                                         dtype=self.mask_dtype)
+            char_seq_space_index = char_seq == self.space_idx[source]
 
-            for i, sample in enumerate(char_seq):
+            for i in range(len(source_batch)):
                 sample_matrix[i, range(max_word_len),
-                              numpy.where(sample == self.space_idx[source])[0] - 1] = 1
+                              numpy.where(char_seq_space_index[i])[0] - 1] = 1
 
             char_aux = numpy.ones((len(source_batch), max_char_seq_length), self.mask_dtype)
-            char_aux[char_seq == self.space_idx[source]] = 0
+            char_aux[char_seq_space_index] = 0
 
             word_mask = numpy.zeros((len(source_batch), max_word_len), self.mask_dtype)
             for i, ws in enumerate(word_shapes):
@@ -138,21 +138,18 @@ class PaddingWithEOS(Padding):
                 target_prev_char_aux[:, 0] = 0
                 target_resample_matrix = numpy.zeros((len(source_batch), max_char_seq_length, max_word_len),
                                                      dtype=self.mask_dtype)
-                for i, sample in enumerate(char_seq):
-                    space_idx = numpy.where(sample == self.space_idx[source])[0]
-                    roll_space_idx = numpy.roll(space_idx, 1)
-                    roll_space_idx[0] = -1
-                    index_x = [x for x in chain.from_iterable([range(roll_space_idx[i] + 1, space_idx[i] + 1)
-                                                               for i in range(len(space_idx))])]
-                    index_y = [x for x in chain.from_iterable([list([i] * l)
-                                                               for i, l in enumerate(space_idx - roll_space_idx)])]
-                    target_resample_matrix[i, index_x, index_y] = 1
+
+                curr_space_idx = numpy.where(char_seq_space_index)
+                for i in range(len(source_batch)):
+                    pj = 0
+                    for cj in range(max_word_len):
+                        target_resample_matrix[i, pj:curr_space_idx[1][i * max_word_len + cj] + 1, cj] = 1
+                        pj = curr_space_idx[1][i * max_word_len + cj] + 1
 
                 batch_with_masks.append(target_char_mask)
                 batch_with_masks.append(target_resample_matrix)
                 batch_with_masks.append(target_prev_char_seq)
                 batch_with_masks.append(target_prev_char_aux)
-
         return tuple(batch_with_masks)
 
 
@@ -186,10 +183,11 @@ class _too_long(object):
 
     def __call__(self, sentence_pair):
         max_unk = 5
-        return all([len(sentence_pair[0]) <= self.max_src_seq_char_len and sentence_pair[0].count(self.unk_id) < max_unk and
-                    sentence_pair[0].count(self.space_idx[0]) < self.max_src_seq_word_len,
-                    len(sentence_pair[1]) <= self.max_trg_seq_char_len and sentence_pair[1].count(self.unk_id) < max_unk and
-                    sentence_pair[1].count(self.space_idx[1]) < self.max_trg_seq_word_len])
+        return all(
+            [len(sentence_pair[0]) <= self.max_src_seq_char_len and sentence_pair[0].count(self.unk_id) < max_unk and
+             sentence_pair[0].count(self.space_idx[0]) < self.max_src_seq_word_len,
+             len(sentence_pair[1]) <= self.max_trg_seq_char_len and sentence_pair[1].count(self.unk_id) < max_unk and
+             sentence_pair[1].count(self.space_idx[1]) < self.max_trg_seq_word_len])
 
 
 def get_tr_stream(src_vocab, trg_vocab, src_data, trg_data,
@@ -220,8 +218,8 @@ def get_tr_stream(src_vocab, trg_vocab, src_data, trg_data,
 
     # Filter sequences that are too long
     stream = Filter(stream, predicate=_too_long(unk_id, [src_vocab[' '], trg_vocab[' ']],
-                                        max_src_seq_char_len, max_src_seq_word_len,
-                                        max_trg_seq_char_len, max_trg_seq_word_len))
+                                                max_src_seq_char_len, max_src_seq_word_len,
+                                                max_trg_seq_char_len, max_trg_seq_word_len))
 
     # Replace out of vocabulary tokens with unk token
     stream = Mapping(stream,
