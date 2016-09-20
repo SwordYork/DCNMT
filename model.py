@@ -660,14 +660,6 @@ class Decoder(Initializable):
             attended_dim=representation_dim,
             match_dim=state_dim, name="attention")
 
-        # for compatible
-        if self.igru_state_dim == self.state_dim:
-            post_merge_layer = [Identity().apply]
-        else:
-            post_merge_layer = [Linear(input_dim=self.state_dim,
-                                      output_dim=self.igru_state_dim).apply,
-                                Tanh().apply]
-
         self.interpolator = Interpolator(
             vocab_size=vocab_size,
             embedding_dim=embedding_dim,
@@ -678,7 +670,7 @@ class Decoder(Initializable):
             readout_dim=self.vocab_size,
             emitter=SoftmaxEmitter(initial_output=trg_bos, theano_seed=theano_seed),
             feedback_brick=Decimator(vocab_size, embedding_dim, self.dgru_state_dim, trg_dgru_depth),
-            post_merge=InitializableFeedforwardSequence(post_merge_layer),
+            post_merge=InitializableFeedforwardSequence([Identity().apply]),
             merged_dim=igru_state_dim)
 
         # Build sequence generator accordingly
