@@ -1,10 +1,12 @@
+import os
+
+
 def get_config():
     config = {}
 
     # prepare data
     config['source_language'] = '--src_lang--'
     config['target_language'] = '--trg_lang--'
-
 
     # Where to save model, this corresponds to 'prefix' in groundhog
     config['saveto'] = 'dcnmt_{}2{}'.format(config['source_language'], config['target_language'])
@@ -19,17 +21,18 @@ def get_config():
 
     # Number of hidden units in encoder/decoder GRU
     config['src_dgru_nhids'] = 512
+    # We use half units in weight gru
+    assert config['src_dgru_nhids'] % 2 == 0
     config['enc_nhids'] = 1024
     config['dec_nhids'] = 1024
     config['trg_dgru_nhids'] = 512
     config['trg_igru_nhids'] = 1024
 
-
     # Dimension of the word embedding matrix in encoder/decoder
     config['enc_embed'] = 64
     config['dec_embed'] = 64
-    config['src_dgru_depth'] = 2
-    config['bidir_encoder_depth'] = 2
+    config['src_dgru_depth'] = 1
+    config['bidir_encoder_depth'] = 2  # crucial
     config['transition_depth'] = 1
     config['trg_dgru_depth'] = 1
     config['trg_igru_depth'] = 1
@@ -37,20 +40,16 @@ def get_config():
     # Optimization related ----------------------------------------------------
 
     # Batch size
-    config['batch_size'] = 80
+    config['batch_size'] = 64  # if use 450 length, you should set it to 56 to fit into 12G RAM
 
     # This many batches will be read ahead and sorted
     config['sort_k_batches'] = 12
-
-    # Optimization step rule
-    config['step_rule'] = 'AdaDelta'
 
     # Gradient clipping threshold
     config['step_clipping'] = 1.
 
     # Std of weight initialization
     config['weight_scale'] = 0.01
-
 
     # Vocabulary/dataset related ----------------------------------------------
 
@@ -68,9 +67,9 @@ def get_config():
 
     # Source and target datasets
     config['src_data'] = datadir + 'all.{}-{}.{}.tok.shuf'.format(config['source_language'], config['target_language'],
-                                                                config['source_language'])
+                                                                  config['source_language'])
     config['trg_data'] = datadir + 'all.{}-{}.{}.tok.shuf'.format(config['source_language'], config['target_language'],
-                                                                config['target_language'])
+                                                                  config['target_language'])
 
     # Source and target vocabulary sizes, should include bos, eos, unk tokens
     config['src_vocab_size'] = --src_vocab_size--
@@ -93,28 +92,14 @@ def get_config():
     # Bleu script that will be used (moses multi-perl in this case)
     config['bleu_script'] = datadir + 'multi-bleu.perl'
 
-    # Validation set source file
-    config['val_set'] = datadir + '--src_val--.tok'
-
-    # Validation set gold file
-    config['val_set_grndtruth'] = datadir + '--trg_val--.tok'
-
     # Test set source file
     config['test_set'] = datadir + '--src_test--.tok'
 
     # Test set gold file
     config['test_set_grndtruth'] = datadir + '--trg_test--.tok'
 
-    config['validate'] = True
-
-    # Print validation output to file
-    config['output_val_set'] = True
-
-    # Validation output file
-    config['val_set_out'] = config['saveto'] + '/validation_out.txt'
-
-    # Validation output file
-    config['test_set_out'] = config['saveto'] + '/test_out.txt'
+    # Test output file
+    config['test_set_out'] = '{}_model_out.txt'.format(os.path.basename(config['test_set_grndtruth']))
 
     # Beam-size
     config['beam_size'] = 12
@@ -122,7 +107,7 @@ def get_config():
     # Timing/monitoring related -----------------------------------------------
 
     # Maximum number of updates
-    config['finish_after'] = 800000
+    config['finish_after'] = 1000000
 
     # Reload model from files if exist
     config['reload'] = True
@@ -131,16 +116,15 @@ def get_config():
     config['save_freq'] = 500
 
     # Print training status after this many updates
-    config['print_freq'] = 10
+    config['print_freq'] = 50
 
     # Show samples from model after this many updates
-    config['sampling_freq'] = 30
+    config['sampling_freq'] = 50
 
     # Show this many samples at each sampling
     config['hook_samples'] = 2
 
-    config['bleu_val_freq'] = 18000
-    # Start validation after this many updates
-    config['val_burn_in'] = 70000
+    # Dump model every this many updates
+    config['dump_freq'] = 20000
 
     return config

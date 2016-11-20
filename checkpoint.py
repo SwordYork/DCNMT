@@ -1,15 +1,15 @@
 import logging
-import numpy
 import os
+import shutil
 import time
-
 from contextlib import closing
-from six.moves import cPickle
 
-from blocks.extensions.saveload import SAVED_TO, LOADED_FROM
+import numpy
 from blocks.extensions import TrainingExtension, SimpleExtension
+from blocks.extensions.saveload import SAVED_TO, LOADED_FROM
 from blocks.serialization import secure_dump, load, BRICK_DELIMITER
 from blocks.utils import reraise_as
+from six.moves import cPickle
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +57,9 @@ class CheckpointNMT(SimpleExtension, SaveLoadUtils):
 
     """
 
-    def __init__(self, saveto, **kwargs):
+    def __init__(self, saveto, dump_freq, **kwargs):
         self.folder = saveto
+        self.dump_freq = dump_freq
         kwargs.setdefault("after_training", True)
         super(CheckpointNMT, self).__init__(**kwargs)
 
@@ -68,7 +69,7 @@ class CheckpointNMT(SimpleExtension, SaveLoadUtils):
                                    self.path_to_parameters)
 
     def dump_iteration_state(self, main_loop):
-        secure_dump(main_loop.iteration_state, self.path_to_iteration_state) 
+        secure_dump(main_loop.iteration_state, self.path_to_iteration_state)
 
     def dump_log(self, main_loop):
         secure_dump(main_loop.log, self.path_to_log, cPickle.dump)
@@ -85,7 +86,7 @@ class CheckpointNMT(SimpleExtension, SaveLoadUtils):
         self.dump_iteration_state(main_loop)
         logger.info(" ...saving log")
         self.dump_log(main_loop)
-        logger.info(" Model saved, took {} seconds.".format(time.time()-start))
+        logger.info(" Model saved, took {} seconds.".format(time.time() - start))
 
     def do(self, callback_name, *args):
         try:
@@ -96,7 +97,11 @@ class CheckpointNMT(SimpleExtension, SaveLoadUtils):
             already_saved_to = self.main_loop.log.current_row.get(SAVED_TO, ())
             self.main_loop.log.current_row[SAVED_TO] = (already_saved_to +
                                                         (self.path_to_folder +
-                                                            'params.npz',))
+                                                         'params.npz',))
+            # save all every dump_freq iterations
+            curr_iter = self.main_loop.status['iterations_done']
+            if curr_iter % self.dump_freq == 0:
+                shutil.copytree(self.folder, self.folder + '_' + str(curr_iter))
 
 
 class LoadNMT(TrainingExtension, SaveLoadUtils):
@@ -122,7 +127,7 @@ class LoadNMT(TrainingExtension, SaveLoadUtils):
         return self.load_parameter_values(self.path_to_parameters)
 
     def load_iteration_state(self):
-        with open(self.path_to_iteration_state, "rb") as source: 
+        with open(self.path_to_iteration_state, "rb") as source:
             return load(source, use_cpickle=True)
 
     def load_log(self):
@@ -143,8 +148,8 @@ class LoadNMT(TrainingExtension, SaveLoadUtils):
                     if params_this[pname].get_value().shape != val.shape:
                         logger.warning(
                             " Dimension mismatch {}-{} for {}"
-                            .format(params_this[pname].get_value().shape,
-                                    val.shape, pname))
+                                .format(params_this[pname].get_value().shape,
+                                        val.shape, pname))
 
                     params_this[pname].set_value(val)
                     logger.info(" Loaded to CG {:15}: {}"
@@ -154,7 +159,7 @@ class LoadNMT(TrainingExtension, SaveLoadUtils):
                         " Parameter does not exist: {}".format(pname))
             logger.info(
                 " Number of parameters loaded for computation graph: {}"
-                .format(len(params_this) - len(missing)))
+                    .format(len(params_this) - len(missing)))
         except Exception as e:
             logger.error(" Error {0}".format(str(e)))
 

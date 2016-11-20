@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-import pickle
 import logging
 import os
-import sys 
-
+import pickle
+import sys
 from collections import Counter
 
 
@@ -76,7 +75,8 @@ if __name__ == "__main__":
     if len(sys.argv) != 7:
         sys.exit(-1)
 
-    configs = {'source': sys.argv[1], 'target': sys.argv[2], 'src_vocab_size': int(sys.argv[3]), 'trg_vocab_size': int(sys.argv[4])}
+    configs = {'source': sys.argv[1], 'target': sys.argv[2], 'src_vocab_size': int(sys.argv[3]),
+               'trg_vocab_size': int(sys.argv[4])}
     src_file_name = sys.argv[5]
     trg_file_name = sys.argv[6]
     create_vocabularies(src_file_name, trg_file_name, configs)

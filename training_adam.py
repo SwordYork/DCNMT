@@ -1,28 +1,25 @@
 import logging
+import pprint
 import sys
-
 from collections import Counter
 
-from theano import tensor
-from toolz import merge
-
-from blocks.algorithms import (GradientDescent, StepClipping, AdaDelta, CompositeRule)
+from blocks.algorithms import GradientDescent, StepClipping, CompositeRule, Adam
 from blocks.extensions import FinishAfter, Printing, Timing
 from blocks.filter import VariableFilter
-from blocks.graph import ComputationGraph, apply_noise
+from blocks.graph import ComputationGraph
 from blocks.initialization import IsotropicGaussian, Orthogonal, Constant
 from blocks.main_loop import MainLoop
 from blocks.model import Model
-from blocks.select import Selector
-
 from blocks.monitoring import aggregation
-from checkpoint import CheckpointNMT, LoadNMT
-from model import BidirectionalEncoder, Decoder
-from sampling import BleuValidator, Sampler, CostCurve
-
-import pprint
+from blocks.select import Selector
+from six.moves import cPickle
+from theano import tensor
+from toolz import merge
 
 import configurations
+from checkpoint import CheckpointNMT, LoadNMT
+from model import BidirectionalEncoder, Decoder
+from sampling import Sampler, CostCurve
 from stream import get_tr_stream, get_dev_stream
 
 logger = logging.getLogger(__name__)
@@ -54,11 +51,11 @@ def main(config, tr_stream, dev_stream):
                                    config['enc_nhids'], config['src_dgru_depth'], config['bidir_encoder_depth'])
 
     decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['trg_dgru_nhids'], config['trg_igru_nhids'],
-                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'], config['trg_igru_depth'],
+                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'],
+                      config['trg_igru_depth'],
                       config['trg_dgru_depth'], target_space_idx, target_bos_idx)
 
-    representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
-                                   source_word_mask)
+    representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux, source_word_mask)
     cost = decoder.cost(representation, source_word_mask, target_char_seq, target_sample_matrix,
                         target_resample_matrix, target_char_aux, target_char_mask,
                         target_word_mask, target_prev_char_seq, target_prev_char_aux)
@@ -73,6 +70,7 @@ def main(config, tr_stream, dev_stream):
     encoder.biases_init = decoder.biases_init = Constant(0)
     encoder.push_initialization_config()
     decoder.push_initialization_config()
+    encoder.decimator.bidir_w.prototype.recurrent.weights_init = Orthogonal()
     for layer_n in range(config['src_dgru_depth']):
         encoder.decimator.dgru.transitions[layer_n].weights_init = Orthogonal()
     for layer_n in range(config['bidir_encoder_depth']):
@@ -88,7 +86,6 @@ def main(config, tr_stream, dev_stream):
         decoder.transition.transitions[layer_n].weights_init = Orthogonal()
     encoder.initialize()
     decoder.initialize()
-
 
     # Print shapes
     shapes = [param.get_value().shape for param in cg.parameters]
@@ -111,11 +108,15 @@ def main(config, tr_stream, dev_stream):
     training_model = Model(cost)
     # Set up training algorithm
     logger.info("Initializing training algorithm")
+
+    # You could use 1e-4 in Adam, however manually decay will be faster.
+    # We decay it to 5e-4 when trained for about 30K
+    # then decay it to 2e-4 when trained for about 90K
+    # finally set it to 1e-4 when trained for about 180K
     algorithm = GradientDescent(
         cost=cost, parameters=cg.parameters,
         step_rule=CompositeRule([StepClipping(config['step_clipping']),
-                                 eval(config['step_rule'])()])
-    )
+                                 Adam(learning_rate=1e-3)]))
 
     # Set extensions
     logger.info("Initializing extensions")
@@ -128,10 +129,10 @@ def main(config, tr_stream, dev_stream):
         train_monitor, Timing(),
         Printing(every_n_batches=config['print_freq']),
         FinishAfter(after_n_batches=config['finish_after']),
-        CheckpointNMT(config['saveto'], every_n_batches=config['save_freq'])]
+        CheckpointNMT(saveto=config['saveto'], dump_freq=config['dump_freq'], every_n_batches=config['save_freq'], )]
 
     # Set up beam search and sampling computation graphs if necessary
-    if config['hook_samples'] >= 1 or config['bleu_script'] is not None:
+    if config['hook_samples'] >= 1:
         logger.info("Building sampling model")
         generated = decoder.generate(representation, source_word_mask)
         search_model = Model(generated)
@@ -147,15 +148,6 @@ def main(config, tr_stream, dev_stream):
                     hook_samples=config['hook_samples'], transition_depth=config['transition_depth'],
                     every_n_batches=config['sampling_freq'], src_vocab_size=config['src_vocab_size']))
 
-    # Add early stopping based on bleu
-    if config['bleu_script'] is not None:
-        logger.info("Building bleu validator")
-        extensions.append(
-            BleuValidator(source_char_seq, source_sample_matrix, source_char_aux,
-                          source_word_mask, samples=samples, config=config,
-                          model=search_model, data_stream=dev_stream,
-                          normalize=config['normalized_bleu'],
-                          every_n_batches=config['bleu_val_freq']))
 
     # Reload model if necessary
     if config['reload']:
@@ -175,7 +167,7 @@ def main(config, tr_stream, dev_stream):
 
 
 if __name__ == "__main__":
-    assert sys.version_info >= (3,4)
+    assert sys.version_info >= (3, 4)
     # Get configurations for model
     configuration = configurations.get_config()
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))

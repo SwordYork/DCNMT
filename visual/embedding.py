@@ -1,23 +1,35 @@
-import pickle
-from theano import tensor
-from blocks.main_loop import MainLoop
-from blocks.model import Model
-
-from checkpoint import LoadNMT
-from model import BidirectionalEncoder, Decoder
-from stream import get_tr_stream
-import numpy
-
-import argparse
 import logging
+import pickle
 import pprint
 
 import configurations
 import matplotlib.pyplot as plt
+import numpy
+from blocks.main_loop import MainLoop
+from blocks.model import Model
 from sklearn import manifold
+from theano import tensor
+
+from checkpoint import LoadNMT
+from model import BidirectionalEncoder, Decoder
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+def _ensure_special_tokens(vocab, bos_idx=0, eos_idx=0, unk_idx=1):
+    """Ensures special tokens exist in the dictionary."""
+
+    # remove tokens if they exist in some other index
+    tokens_to_remove = [k for k, v in vocab.items()
+                        if v in [bos_idx, eos_idx, unk_idx]]
+    for token in tokens_to_remove:
+        vocab.pop(token)
+    # put corresponding item
+    vocab['<S>'] = bos_idx
+    vocab['</S>'] = eos_idx
+    vocab['<UNK>'] = unk_idx
+    return vocab
 
 
 def build_input_dict(input_, src_vocab):
@@ -27,7 +39,12 @@ def build_input_dict(input_, src_vocab):
     total_word = list(input_).count(src_vocab[' '])
 
     source_sample_matrix = numpy.zeros((total_word, input_length), dtype='int8')
-    source_sample_matrix[range(total_word), numpy.nonzero(input_ == src_vocab[' '])[0] - 1] = 1
+    curr_space_idx = numpy.where(input_ == src_vocab[' '])
+    pj = 0
+    for cj in range(total_word):
+        tj = curr_space_idx[0][cj]
+        source_sample_matrix[cj, pj:tj] = 1
+        pj = tj + 1
 
     source_char_aux = numpy.ones(input_length, dtype='int8')
     source_char_aux[input_ == src_vocab[' ']] = 0
@@ -93,7 +110,7 @@ def embedding(embedding_model, src_vocab):
     plt.show()
 
 
-def main(config, tr_stream):
+def main(config):
     # Create Theano variables
     logger.info('Creating theano variables')
     source_char_seq = tensor.lmatrix('source_char_seq')
@@ -108,17 +125,25 @@ def main(config, tr_stream):
     target_resample_matrix = tensor.btensor3('target_resample_matrix')
     target_prev_char_seq = tensor.lmatrix('target_prev_char_seq')
     target_prev_char_aux = tensor.bmatrix('target_prev_char_aux')
-    target_bos_idx = tr_stream.trg_bos
-    target_space_idx = tr_stream.space_idx['target']
-    src_vocab = pickle.load(open(config['src_vocab'], 'rb'))
+
+    src_vocab = _ensure_special_tokens(
+        pickle.load(open(config['src_vocab'], 'rb')),
+        bos_idx=0, eos_idx=config['src_vocab_size'] - 1, unk_idx=config['unk_id'])
+
+    trg_vocab = _ensure_special_tokens(
+        pickle.load(open(config['trg_vocab'], 'rb')),
+        bos_idx=0, eos_idx=config['trg_vocab_size'] - 1, unk_idx=config['unk_id'])
+
+    target_bos_idx = trg_vocab[config['bos_token']]
+    target_space_idx = trg_vocab[' ']
 
     logger.info('Building RNN encoder-decoder')
     encoder = BidirectionalEncoder(config['src_vocab_size'], config['enc_embed'], config['src_dgru_nhids'],
                                    config['enc_nhids'], config['src_dgru_depth'], config['bidir_encoder_depth'])
 
     decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['trg_dgru_nhids'], config['trg_igru_nhids'],
-                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'], config['trg_igru_depth'],
-                      config['trg_dgru_depth'], target_space_idx, target_bos_idx)
+                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'],
+                      config['trg_igru_depth'], config['trg_dgru_depth'], target_space_idx, target_bos_idx)
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)
@@ -155,15 +180,9 @@ def main(config, tr_stream):
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Get the arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("--proto", default="get_config_en2fr",
-                    help="Prototype config to use for config")
-args = parser.parse_args()
-
 if __name__ == '__main__':
     # Get configurations for model
-    configuration = getattr(configurations, args.proto)()
+    configuration = configurations.get_config()
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))
     # Get data streams and call main
-    main(configuration, get_tr_stream(**configuration))
+    main(configuration)

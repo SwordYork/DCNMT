@@ -70,25 +70,11 @@ tok_target_file=all.$source_language-$target_language.$target_language.tok
 perl tokenizer.perl -l $source_language -threads 4 -no-escape < $source_data > $tok_source_file
 perl tokenizer.perl -l $target_language -threads 4 -no-escape < $target_data > $tok_target_file
 
-echo 'please put the validation and test dataset in the data directory'
-echo 'the file name of source validation set:'
-read -p '==>' src_val
-echo 'the file name of target validation set:'
-read -p '==>' trg_val
+echo 'please put test dataset in the data directory'
 echo 'the file name of source test set:'
 read -p '==>' src_test
 echo 'the file name of targe test set:'
 read -p '==>' trg_test
-
-if [ ! -f $src_val ]; then
-    echo 'no such source validation file'
-    exit -1
-fi
-
-if [ ! -f $trg_val ]; then
-    echo 'no such target validation file'
-    exit -1
-fi
 
 if [ ! -f $src_test ]; then
     echo 'no such source test file'
@@ -100,9 +86,7 @@ if [ ! -f $trg_test ]; then
     exit -1
 fi
 
-perl tokenizer.perl -l $source_language -threads 4 -no-escape < $src_val > $src_val.tok
 perl tokenizer.perl -l $source_language -threads 4 -no-escape < $src_test > $src_test.tok
-perl tokenizer.perl -l $target_language -threads 4 -no-escape < $trg_val > $trg_val.tok
 perl tokenizer.perl -l $target_language -threads 4 -no-escape < $trg_test > $trg_test.tok
 
 
@@ -126,12 +110,10 @@ sed -i "s/--src_lang--/$source_language/" configurations.py
 sed -i "s/--trg_lang--/$target_language/" configurations.py
 sed -i "s/--src_vocab_size--/$src_vocab_size/" configurations.py
 sed -i "s/--trg_vocab_size--/$trg_vocab_size/" configurations.py
-sed -i "s/--src_val--/$src_val/" configurations.py
-sed -i "s/--trg_val--/$trg_val/" configurations.py
 sed -i "s/--src_test--/$src_test/" configurations.py
 sed -i "s/--trg_test--/$trg_test/" configurations.py
 
-echo "ok! just run 'python training.py'"
+echo "ok! just run 'python training_adam.py'"
 
 
 

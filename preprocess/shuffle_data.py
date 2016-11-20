@@ -3,8 +3,8 @@
 import logging
 import os
 import subprocess
-import uuid
 import sys
+import uuid
 
 from picklable_itertools.extras import equizip
 

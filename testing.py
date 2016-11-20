@@ -1,38 +1,37 @@
-from theano import tensor
+import logging
+import pprint
+import sys
 
+import configurations
 from blocks.filter import VariableFilter
 from blocks.graph import ComputationGraph
 from blocks.main_loop import MainLoop
 from blocks.model import Model
+from theano import tensor
 
 from checkpoint import LoadNMT
 from model import BidirectionalEncoder, Decoder
 from sampling import BleuTester
-import logging
-import pprint
-
-import configurations
 from stream import get_test_stream
 
 logger = logging.getLogger(__name__)
 
 
-def main(config, test_stream):
+def main(config, test_stream, testing_model):
     # Create Theano variables
     logger.info('Creating theano variables')
     source_char_seq = tensor.lmatrix('source_char_seq')
-    source_sample_matrix = tensor.tensor3('source_sample_matrix')
-    source_char_aux = tensor.matrix('source_char_aux')
-    source_word_mask = tensor.matrix('source_word_mask')
+    source_sample_matrix = tensor.btensor3('source_sample_matrix')
+    source_char_aux = tensor.bmatrix('source_char_aux')
+    source_word_mask = tensor.bmatrix('source_word_mask')
     target_char_seq = tensor.lmatrix('target_char_seq')
-    target_char_aux = tensor.matrix('target_char_aux')
-    target_char_mask = tensor.matrix('target_char_mask')
-    target_sample_matrix = tensor.tensor3('target_sample_matrix')
-    target_word_mask = tensor.matrix('target_word_mask')
-    target_resample_matrix = tensor.tensor3('target_resample_matrix')
+    target_char_aux = tensor.bmatrix('target_char_aux')
+    target_char_mask = tensor.bmatrix('target_char_mask')
+    target_sample_matrix = tensor.btensor3('target_sample_matrix')
+    target_word_mask = tensor.bmatrix('target_word_mask')
+    target_resample_matrix = tensor.btensor3('target_resample_matrix')
     target_prev_char_seq = tensor.lmatrix('target_prev_char_seq')
-    target_prev_char_aux = tensor.matrix('target_prev_char_aux')
-
+    target_prev_char_aux = tensor.bmatrix('target_prev_char_aux')
     target_bos_idx = test_stream.trg_bos
     target_space_idx = test_stream.space_idx['target']
 
@@ -43,9 +42,8 @@ def main(config, test_stream):
                                    config['enc_nhids'], config['src_dgru_depth'], config['bidir_encoder_depth'])
 
     decoder = Decoder(config['trg_vocab_size'], config['dec_embed'], config['trg_dgru_nhids'], config['trg_igru_nhids'],
-                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'], config['trg_igru_depth'],
-                      config['trg_dgru_depth'], target_space_idx, target_bos_idx)
-
+                      config['dec_nhids'], config['enc_nhids'] * 2, config['transition_depth'],
+                      config['trg_igru_depth'], config['trg_dgru_depth'], target_space_idx, target_bos_idx)
 
     representation = encoder.apply(source_char_seq, source_sample_matrix, source_char_aux,
                                    source_word_mask)
@@ -63,7 +61,7 @@ def main(config, test_stream):
     extensions = []
     # Reload model if necessary
     if config['reload']:
-        extensions.append(LoadNMT(config['saveto']))
+        extensions.append(LoadNMT(testing_model))
 
     # Set up beam search and sampling computation graphs if necessary
     if config['bleu_script'] is not None:
@@ -72,13 +70,14 @@ def main(config, test_stream):
         search_model = Model(generated)
         _, samples = VariableFilter(
             bricks=[decoder.sequence_generator], name="outputs")(
-            ComputationGraph(generated[config['transition_depth']]))  # generated[config['transition_depth']] is next_outputs
+            ComputationGraph(generated[config['transition_depth']]))
+        # generated[config['transition_depth']] is next_outputs
 
         logger.info("Building bleu tester")
         extensions.append(
             BleuTester(source_char_seq, source_sample_matrix, source_char_aux,
                        source_word_mask, samples=samples, config=config,
-                       model=search_model, data_stream=test_stream,
+                       model=search_model, data_stream=test_stream, testing_model=testing_model,
                        normalize=config['normalized_bleu']))
 
     # Initialize main loop
@@ -99,10 +98,10 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 if __name__ == '__main__':
+    testing_model = sys.argv[1]
+    print('start testing:', testing_model)
     # Get configurations for model
     configuration = configurations.get_config()
     logger.info("Model options:\n{}".format(pprint.pformat(configuration)))
     # Get data streams and call main
-    main(configuration, get_test_stream(**configuration))
-
-
+    main(configuration, get_test_stream(**configuration), testing_model)

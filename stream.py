@@ -1,12 +1,12 @@
-import numpy
+import pickle
 
+import numpy
 from fuel.datasets import TextFile
 from fuel.schemes import ConstantScheme
 from fuel.streams import DataStream
 from fuel.transformers import (
     Merge, Batch, Filter, Padding, SortMapping, Unpack, Mapping)
 
-import pickle
 import configurations
 
 
@@ -109,10 +109,19 @@ class PaddingWithEOS(Padding):
             sample_matrix = numpy.zeros((len(source_batch), max_word_len, max_char_seq_length),
                                         dtype=self.mask_dtype)
             char_seq_space_index = char_seq == self.space_idx[source]
+            curr_space_idx = numpy.where(char_seq_space_index)
 
-            for i in range(len(source_batch)):
-                sample_matrix[i, range(max_word_len),
-                              numpy.where(char_seq_space_index[i])[0] - 1] = 1
+            if source == 'source':
+                for i in range(len(source_batch)):
+                    pj = 0
+                    for cj in range(max_word_len):
+                        tj = curr_space_idx[1][i * max_word_len + cj]
+                        sample_matrix[i, cj, pj:tj] = 1
+                        pj = tj + 1
+            else:
+                for i in range(len(source_batch)):
+                    sample_matrix[i, range(max_word_len),
+                                  numpy.where(char_seq_space_index[i])[0] - 1] = 1
 
             char_aux = numpy.ones((len(source_batch), max_char_seq_length), self.mask_dtype)
             char_aux[char_seq_space_index] = 0
