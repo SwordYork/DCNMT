@@ -98,6 +98,9 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('please specific which model to use, like "dcnmt_en2cs_800000"')
+        sys.exit(1)
     testing_model = sys.argv[1]
     print('start testing:', testing_model)
     # Get configurations for model
