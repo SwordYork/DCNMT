@@ -23,10 +23,11 @@ Testing
 -----------------------
 We have trained several models which listed in the following table. However, because of the limitation of available GPU and long training time (two weeks or more), we don't have enough time and resource to train on more language pairs. If you run into any trouble, please open an issue or email me directly at `echo c3dvcmQueW9ya0BnbWFpbC5jb20K | base64 -d`. Thanks!
 
-| language pair | dataset | BLEU_dev | BLEU_test1 | BLEU_test2 |
-|:--------:|:--------:|:--------:|:--------:|:--------:|
-| en-cs | [wmt15](http://www.statmt.org/wmt15/translation-task.html) | 17.89 | 18.60 | 16.96 |
+| language pair | dataset | batch_size | updates | BLEU_dev | BLEU_test |
+|:--------:|:--------:|:--------:|:--------:|:--------:|:--------:|
+| en-cs | [wmt15](http://www.statmt.org/wmt15/translation-task.html) | 56 | 800,000 | 17.89 | 16.96 |
+| cs-en | [wmt15](http://www.statmt.org/wmt15/translation-task.html) | 56 | ~1,270,000 | 23.15~23.24 | 22.33~22.48 |
 
-These models are evaluated on `newstest2014 (BLEU_test1)` and `newtest2015 (BLEU_test2)` using the best validation model on `newstest2013 (BLEU_dev)`. You can download these models from [dropbox](https://www.dropbox.com/sh/o34kd051rm2duvu/AAA5ReaXrr043EocIYZuwPJsa?dl=0), then put them (dcnmt_\*, data, configurations.py) in this directory. To perform testing, run `python testing.py dcnmt_en2cs_800000` or other corresponding language pairs. It takes about an hour to do translation on 3000 sentences if you have a moderate GPU.
+These models are evaluated on `newstest2015 (BLEU_test)` using the best validation model on `newstest2013 (BLEU_dev)`. You can download these models from [dropbox](https://www.dropbox.com/sh/o34kd051rm2duvu/AAA5ReaXrr043EocIYZuwPJsa?dl=0), then put them (dcnmt_\*, data, configurations.py) in this directory. To perform testing, run `python testing.py dcnmt_en2cs_800000` or other corresponding language pairs. It takes about an hour to do translation on 3000 sentences if you have a moderate GPU.
 
 Updating...
