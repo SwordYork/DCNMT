@@ -2,8 +2,12 @@ Deep Character-Level Neural Machine Translation
 ============
 We implement a **Deep Character-Level Neural Machine Translation By Learning Morphology** based on [Theano](https://github.com/Theano/Theano) and [Blocks](https://github.com/mila-udem/blocks). Please intall relative packages according to [Blocks](http://blocks.readthedocs.io/en/latest/setup.html) before testing our program. Note that, please use Python 3 instead of Python 2. There will be some problems with Python 2. 
 
-It is an improved version of [DCNMT](https://github.com/swordyork/dcnmt/tree/old-version), the architecture of DCNMT is shown in the following figure which is a single, large neural network. Please refer to the paper for the details.
+It is an improved version of [DCNMT](https://github.com/swordyork/dcnmt/tree/old-version), the architecture of DCNMT is shown in the following figure which is a single, large neural network. 
 ![DCNMT](/figures/dcnmt.png?raw=true "The architecture of DCNMT")
+
+Please refer to the paper for the details.
+> Deep Character-Level Neural Machine Translation By Learning Morphology ([openreview](https://openreview.net/forum?id=rJq_YBqxx), submitted to ICLR 2017)
+> by Shenjian Zhao, Zhihua Zhang
 
 
 Training
