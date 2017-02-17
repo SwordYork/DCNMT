@@ -10,6 +10,7 @@ import numpy
 from blocks.extensions import SimpleExtension, TrainingExtension
 from blocks.extensions.monitoring import TrainingDataMonitoring
 from blocks.search import BeamSearch
+from picklable_itertools.extras import equizip
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +219,15 @@ class Sampler(SimpleExtension, SamplingBase):
             print()
 
 
+def result_to_lists(result):
+    outputs, masks, costs = [array.T for array in result]
+    # temporary fix for the type of mask
+    outputs = [list(output[:int(mask.sum())])
+               for output, mask in equizip(outputs, masks)]
+    costs = list(costs.T.sum(axis=0))
+    return outputs, costs
+
+
 class BleuTester(TrainingExtension, SamplingBase):
     # TODO: a lot has been changed in NMT, sync respectively
     """Implements Testing BLEU score."""
@@ -283,14 +293,16 @@ class BleuTester(TrainingExtension, SamplingBase):
             _, input_dict = self.build_input_dict(numpy.asarray(seq), self.vocab, self.config['beam_size'])
 
             # draw sample, checking to ensure we don't get an empty string back
-            trans, costs = \
+            result = \
                 self.beam_search.search(
                     input_values={self.source_char_seq: input_dict['source_char_seq'],
                                   self.source_sample_matrix: input_dict['source_sample_matrix'],
                                   self.source_word_mask: input_dict['source_word_mask'],
                                   self.source_char_aux: input_dict['source_char_aux']},
-                    max_length=3 * len(seq), eol_symbol=self.trg_eos_idx,
+                    max_length=3 * len(seq), eol_symbol=self.trg_eos_idx, as_arrays=True,
                     ignore_first_eol=False)
+
+            trans, costs = result_to_lists(result)
 
             # normalize costs according to the sequence lengths
             if self.normalize:
